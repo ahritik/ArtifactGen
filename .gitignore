@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+.venv/
+.env/
+
+# Data
+/data/raw/
+/data/processed/**
+!data/processed/splits_subjectwise.csv
+!data/processed/class_map.csv
+
+# Results
+/results/checkpoints/**
+/results/figures/**
+/results/manifest.json
+
+# Notebooks
+.ipynb_checkpoints/
+
+# OS
+.DS_Store

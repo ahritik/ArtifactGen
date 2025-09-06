@@ -1,0 +1,5 @@
+subject_id,split
+SUBJ001,train
+SUBJ002,train
+SUBJ003,val
+SUBJ004,test

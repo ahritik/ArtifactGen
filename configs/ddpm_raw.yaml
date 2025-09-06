@@ -1,0 +1,46 @@
+experiment:
+  name: ddpm_raw
+  seed: 42
+
+data:
+  dataset_root: /abs/path/to/TUAR
+  processed_root: data/processed
+  channels: [Fp1, Fp2, C3, C4, O1, O2, T3, T4]
+  window_seconds: 2.0
+  sample_rate: 250
+  overlap: 0.5
+  filtering: raw
+  split_csv: data/processed/splits_subjectwise.csv
+  class_map_csv: data/processed/class_map.csv
+  normalization: zscore_per_recording
+
+training:
+  model: ddpm
+  batch_size: 32
+  epochs: 400
+  lr: 2e-4
+  ema_decay: 0.999
+  num_workers: 8
+
+model:
+  channels: 8
+  length: 500
+  num_classes: 6
+  unet:
+    base_channels: 64
+    channel_mults: [1, 2, 4]
+    num_res_blocks: 2
+    dropout: 0.1
+    use_dilations: true
+
+sampling:
+  schedule: cosine
+  objective: v_prediction
+  steps: 50          # try 20, 50, 1000
+  guidance_scale: 3.5
+  sampler: ddim      # or dpmpp
+
+io:
+  checkpoints_dir: results/checkpoints/ddpm_raw
+  figures_dir: results/figures/ddpm_raw
+  manifest: results/manifest.json

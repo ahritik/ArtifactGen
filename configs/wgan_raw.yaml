@@ -1,0 +1,41 @@
+experiment:
+  name: wgan_raw
+  seed: 42
+
+# Data and preprocessing
+data:
+  dataset_root: /abs/path/to/TUAR
+  processed_root: data/processed
+  channels: [Fp1, Fp2, C3, C4, O1, O2, T3, T4]
+  window_seconds: 1.0
+  sample_rate: 250
+  overlap: 0.5
+  filtering: raw  # or filtered
+  split_csv: data/processed/splits_subjectwise.csv
+  class_map_csv: data/processed/class_map.csv
+  store_minmax: true
+
+# Training
+training:
+  model: wgan_gp
+  batch_size: 64
+  epochs: 200
+  n_critic: 5
+  lr: 1e-4
+  betas: [0.0, 0.9]
+  grad_penalty_lambda: 10.0
+  spectral_loss_weight: 0.05
+  num_workers: 8
+
+# Model
+model:
+  z_dim: 128
+  channels: 8
+  length: 250
+  num_classes: 6  # update per TUAR classes used
+
+# Logging/IO
+io:
+  checkpoints_dir: results/checkpoints/wgan_raw
+  figures_dir: results/figures/wgan_raw
+  manifest: results/manifest.json
