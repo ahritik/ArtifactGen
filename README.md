@@ -9,12 +9,12 @@ It targets the TUH EEG Artifact Corpus (TUAR) with subject-wise splits, robust p
 
 ## Associated Paper
 
-This repository accompanies the NeurIPS 2025 paper submission. The paper files are located in the `paper/` directory:
+The paper files are located in the `paper/` directory:
 
-- Source: `paper/neurips_2025.tex`
-- Bibliography: `paper/CITATIONS.bib`
+- Source: `paper/ArtifactGEN.tex`
+- Bibliography: `paper/ArtifactGEN.bib`
 - Style: `paper/neurips_2025.sty`
-- Compiled PDF: `paper/neurips_2025.pdf`
+- Compiled PDF: `paper/ArtifactGEN.pdf`
 
 ## Quickstart
 
