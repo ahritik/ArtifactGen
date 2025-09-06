@@ -9,3 +9,4 @@ umap-learn==0.5.6
 einops==0.7.0
 tqdm==4.66.4
 pyyaml==6.0.1
+tensorboard==2.17.0

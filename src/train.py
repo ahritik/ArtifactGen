@@ -3,21 +3,14 @@ from __future__ import annotations
 import argparse
 import os
 
-try:
-    import torch  # type: ignore
-    import torch.nn.functional as F  # type: ignore
-    from torch import optim  # type: ignore
-    from torch.utils.data import DataLoader  # type: ignore
-except ImportError:  # pragma: no cover
-    torch = None  # type: ignore
-    F = None  # type: ignore
-    optim = None  # type: ignore
-    DataLoader = None  # type: ignore
+import torch
+import torch.nn.functional as F
+import yaml
+from torch import optim
+from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 
-try:
-    import yaml  # type: ignore
-except ImportError:  # pragma: no cover
-    yaml = None  # type: ignore
+import tqdm
 
 from .dataset import EEGWindowDataset
 from .models import WGANGPGenerator, WGANGPCritic, UNet1D
@@ -40,7 +33,7 @@ def set_seed(seed: int):
     torch.cuda.manual_seed_all(seed)
 
 
-def train_wgan(cfg, device):
+def train_wgan(cfg, device: torch.device):
     data_root = cfg["data"]["processed_root"]
     num_classes = int(cfg["model"]["num_classes"])
     channels = int(cfg["model"]["channels"])
@@ -59,7 +52,9 @@ def train_wgan(cfg, device):
     gp_lambda = float(cfg["training"]["grad_penalty_lambda"]) 
     spec_w = float(cfg["training"]["spectral_loss_weight"]) 
 
-    for epoch in range(cfg["training"]["epochs"]):
+    writer = SummaryWriter(log_dir="results/tensorboard/wgan")
+
+    for epoch in tqdm.tqdm(range(cfg["training"]["epochs"]), desc="WGAN Training"):
         for _i, (x, y) in enumerate(dl):
             x = x.to(device)
             y = y.to(device)
@@ -94,11 +89,18 @@ def train_wgan(cfg, device):
             loss_g.backward()
             opt_g.step()
 
+            writer.add_scalar("Loss/D", loss_d.item(), epoch)
+            writer.add_scalar("Loss/G", loss_g.item(), epoch)
+            if spec_w > 0:
+                writer.add_scalar("Loss/Spectral", spec_loss.item(), epoch)
+
         if (epoch + 1) % 10 == 0:
             print(f"[WGAN] Epoch {epoch+1} | D: {loss_d.item():.4f} G: {loss_g.item():.4f}")
 
+    writer.close()
 
-def train_ddpm(cfg, device):
+
+def train_ddpm(cfg, device: torch.device):
     data_root = cfg["data"]["processed_root"]
     num_classes = int(cfg["model"]["num_classes"])
     channels = int(cfg["model"]["channels"])
@@ -123,7 +125,9 @@ def train_ddpm(cfg, device):
     alphas = 1.0 - betas
     alphas_cumprod = torch.cumprod(alphas, dim=0)
 
-    for epoch in range(cfg["training"]["epochs"]):
+    writer = SummaryWriter(log_dir="results/tensorboard/ddpm")
+
+    for epoch in tqdm.tqdm(range(cfg["training"]["epochs"]), desc="DDPM Training"):
         for x, y in dl:
             x = x.to(device)
             y = y.to(device)
@@ -140,17 +144,21 @@ def train_ddpm(cfg, device):
             loss.backward()
             opt.step()
 
+            writer.add_scalar("Loss/MSE", loss.item(), epoch)
+
         if (epoch + 1) % 10 == 0:
             print(f"[DDPM] Epoch {epoch+1} | MSE: {loss.item():.4f}")
+
+    writer.close()
 
 
 def main():
     args = parse_args()
     with open(args.config, "r", encoding="utf-8") as f:
-        cfg = yaml.safe_load(f) if yaml is not None else {}
+        cfg = yaml.safe_load(f)
     seed = int(cfg.get("experiment", {}).get("seed", 42))
     set_seed(seed)
-    device = torch.device("cuda" if (torch is not None and torch.cuda.is_available()) else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model_kind = cfg["training"]["model"]
     os.makedirs("results/checkpoints", exist_ok=True)
 

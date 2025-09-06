@@ -3,10 +3,12 @@ import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Generator
 
 import numpy as np
 import yaml  # type: ignore
+import mne  # type: ignore
+import csv
 
 
 @dataclass
@@ -91,10 +93,79 @@ def class_map(class_map_csv: str) -> Dict[str, str]:
     return mapping
 
 
-def iterate_raw_events(_dataset_root: str, _channels: List[str]) -> List[Dict]:
-    # Placeholder: implement TUAR iteration with MNE in a follow-up.
-    # Should yield dicts: subject_id, recording_id, start_s, end_s, label, array (C x T)
-    return []
+def iterate_raw_events(_dataset_root: str, _channels: List[str], cfg: PreprocessConfig) -> Generator[Dict, None, None]:
+    # Implement TUAR iteration with MNE
+    edf_root = Path(_dataset_root) / "edf"
+    for subdir in edf_root.glob("*"):
+        if not subdir.is_dir():
+            continue
+        for edf_path in subdir.glob("*.edf"):
+            stem = edf_path.stem
+            subject = stem.split("_")[0]
+            csv_path = edf_path.with_suffix(".csv")
+            if not csv_path.exists():
+                continue
+            
+            # Read EDF with MNE
+            raw = mne.io.read_raw_edf(edf_path, preload=True, verbose=False)
+            raw.pick_types(eeg=True)  # Keep only EEG channels
+            data = raw.get_data()  # Shape: (n_channels, n_samples)
+            ch_names = raw.ch_names
+            fs = int(raw.info['sfreq'])
+            
+            # Read annotations
+            events = []
+            with open(csv_path, "r", encoding="utf-8") as f:
+                reader = csv.reader(f)
+                for row in reader:
+                    if len(row) < 5 or row[0].startswith("#") or row[0].lower() == "channel":
+                        continue
+                    ch, start, stop, label, conf = row[:5]
+                    if ch not in ch_names:
+                        continue
+                    events.append({
+                        "channel": ch,
+                        "start": float(start),
+                        "stop": float(stop),
+                        "label": label,
+                        "confidence": float(conf),
+                    })
+            
+            # Sort events by start time
+            events.sort(key=lambda e: float(e['start']))
+            
+            # Extract windows, handle overlaps
+            prev_end = -1.0
+            for event in events:
+                start = float(event['start'])
+                stop = float(event['stop'])
+                if start < prev_end - 0.5:  # Skip overlapping
+                    continue
+                window_start = max(0, start - 0.5)  # 1s window centered
+                window_end = window_start + 1.0
+                if window_end > raw.times[-1]:
+                    continue
+                
+                # Extract window for all channels
+                start_idx = int(window_start * fs)
+                end_idx = int(window_end * fs)
+                window_data = data[:, start_idx:end_idx]  # Shape: (n_channels, window_samples)
+                
+                # Apply filtering if needed
+                if cfg.filtering == "filtered":
+                    window_data = bandpass_notch(window_data, fs)
+                
+                # Yield dict
+                yield {
+                    "subject_id": subject,
+                    "recording_id": stem,
+                    "start_s": window_start,
+                    "end_s": window_end,
+                    "label": event['label'],
+                    "array": window_data,
+                }
+                
+                prev_end = window_end
 
 
 def window_signal(arr: np.ndarray, fs: int, win_s: float, overlap: float) -> List[Tuple[int, np.ndarray]]:
@@ -139,7 +210,7 @@ def main():
     win_s = cfg.window_seconds
 
     manifest = []
-    for ev in iterate_raw_events(cfg.dataset_root, cfg.channels):
+    for ev in iterate_raw_events(cfg.dataset_root, cfg.channels, cfg):
         subj = ev["subject_id"]
         split = splits.get(subj, "train")
         label = cmap.get(ev["label"], ev["label"])  # map to canonical name if available
@@ -172,14 +243,14 @@ def main():
                 meta["max"] = float(w.max())
 
             base = f"{subj}_{ev.get('recording_id','rec')}_{j:05d}"
-            npy_path = out_class_dir / f"{base}.npy"
+            npz_path = out_class_dir / f"{base}.npz"
             meta_path = meta_dir / f"{base}.json"
-            np.save(npy_path, w.astype(np.float32))
+            np.savez_compressed(npz_path, array=w.astype(np.float32), metadata=json.dumps(meta))
             with open(meta_path, "w", encoding="utf-8") as f:
                 json.dump(meta, f, indent=2)
 
             manifest.append({
-                "path": str(npy_path),
+                "path": str(npz_path),
                 "meta": str(meta_path),
                 "split": split,
                 "label": label,

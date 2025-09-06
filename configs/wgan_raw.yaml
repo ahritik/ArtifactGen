@@ -4,14 +4,14 @@ experiment:
 
 # Data and preprocessing
 data:
-  dataset_root: /abs/path/to/TUAR
+  dataset_root: /Users/hritikarasu/Developer/TUAR
   processed_root: data/processed
   channels: [Fp1, Fp2, C3, C4, O1, O2, T3, T4]
   window_seconds: 1.0
   sample_rate: 250
   overlap: 0.5
   filtering: raw  # or filtered
-  split_csv: data/processed/splits_subjectwise.csv
+  split_csv: data/processed/suggested_splits_subjectwise_multilabel.csv
   class_map_csv: data/processed/class_map.csv
   store_minmax: true
 
