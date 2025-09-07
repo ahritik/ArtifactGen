@@ -1,0 +1,8 @@
+{
+  "total_subjects": 213,
+  "per_split_counts": {
+    "train": 149,
+    "val": 32,
+    "test": 32
+  }
+}

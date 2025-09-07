@@ -10,6 +10,7 @@ import yaml  # type: ignore
 import mne  # type: ignore
 import csv
 import tqdm
+from src.merge_map import remap_label
 
 # Enable CUDA for MNE if available
 try:
@@ -114,13 +115,68 @@ def iterate_raw_events(_dataset_root: str, _channels: List[str], cfg: Preprocess
             
             # Read EDF with MNE
             raw = mne.io.read_raw_edf(edf_path, preload=True, verbose=False)
-            # Pick only EEG channels and then select the specified channels
-            raw.pick_types(eeg=True)
-            raw.pick(cfg.channels)  # Select only the channels specified in config
+
+            # Normalize and map TUAR/MNE channel name variants to our canonical names.
+            # This lets us accept variants like 'FP1-F3', 'Fp1', 'Fp1-F7' and map them to 'Fp1'.
+            def normalize_ch_names(orig_chs: List[str]) -> Tuple[List[str], Dict[str, str]]:
+                heur = [
+                    (['fp1', 'fp1f3', 'fp1f7'], 'Fp1'),
+                    (['fp2', 'fp2f4', 'fp2f8'], 'Fp2'),
+                    (['c3', 'f3c3', 'c3p3'], 'C3'),
+                    (['c4', 'f4c4', 'c4p4'], 'C4'),
+                    (['o1', 'o1o2'], 'O1'),
+                    (['o2', 'o2o1'], 'O2'),
+                    (['t3', 'f7t3', 't3t5'], 'T3'),
+                    (['t4', 'f8t4', 't4t6'], 'T4'),
+                ]
+                name_map: Dict[str, str] = {}
+                normalized = []
+                for ch in orig_chs:
+                    ch_l = ch.lower().replace(' ', '').replace('-', '').replace('_', '')
+                    mapped = None
+                    for keys, canon in heur:
+                        for k in keys:
+                            if k in ch_l:
+                                mapped = canon
+                                break
+                        if mapped:
+                            break
+                    if mapped is None:
+                        mapped = ch
+                    name_map[ch] = mapped
+                    normalized.append(mapped)
+                return normalized, name_map
+
+            orig_chs = raw.ch_names
+            normalized_chs, ch_name_map = normalize_ch_names(orig_chs)
+
+            # Required channels from config (canonical names)
+            required = [str(c) for c in cfg.channels]
+
+            present = set(normalized_chs)
+            if not all(r in present for r in required):
+                print(f"Skipping {edf_path} due to missing required channels after normalization. Found: {sorted(list(present))}")
+                continue
+
+            # Build list of original channel names to pick, in canonical order
+            pick_names = []
+            for rc in required:
+                for orig, mapped in ch_name_map.items():
+                    if mapped == rc:
+                        pick_names.append(orig)
+                        break
+
+            # Ensure unique and preserve order
+            seen = set()
+            pick_names = [p for p in pick_names if not (p in seen or seen.add(p))]
+
+            # Pick those channels and optionally filter
+            raw.pick(pick_names)
             if cfg.filtering == "filtered":
                 raw = bandpass_notch(raw)
+
             data = raw.get_data()  # Shape: (n_channels, n_samples)
-            ch_names = raw.ch_names
+            ch_names = [ch_name_map.get(n, n) for n in pick_names]
             fs = int(raw.info['sfreq'])
             
             # Read annotations
@@ -131,11 +187,13 @@ def iterate_raw_events(_dataset_root: str, _channels: List[str], cfg: Preprocess
                     if len(row) < 5 or row[0].startswith("#") or row[0].lower() == "channel":
                         continue
                     ch, start, stop, label, conf = row[:5]
+                    # remap label using centralized merge map
+                    label_mapped = remap_label(label)
                     events.append({
                         "channel": ch,
                         "start": float(start),
                         "stop": float(stop),
-                        "label": label,
+                        "label": label_mapped,
                         "confidence": float(conf),
                     })
             
@@ -217,12 +275,20 @@ def main():
     for ev in tqdm.tqdm(iterate_raw_events(cfg.dataset_root, cfg.channels, cfg), desc="Processing events"):
         subj = ev["subject_id"]
         split = splits.get(subj, "train")
-        label = cmap.get(ev["label"], ev["label"])  # map to canonical name if available
-        arr = ev["array"]  # (C, T)
+
+        # Ensure label remapping applied earlier; map to canonical display name if class_map provides one
+        raw_label = ev.get("label")
+        label = cmap.get(raw_label, raw_label)
+        arr = ev.get("array")  # (C, T)
+
+        if arr is None:
+            continue
 
         win_list = window_signal(arr, fs, win_s, cfg.overlap)
         _, windows = zip(*win_list) if win_list else ([], [])
         windows = list(windows)
+        if not windows:
+            continue
         keep_idx = deduplicate_near_identical(windows)
 
         out_class_dir = Path(cfg.processed_root) / split / label

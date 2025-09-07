@@ -7,6 +7,7 @@ from typing import List, Tuple
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 from torch.utils.data import Dataset
 
 
@@ -47,6 +48,22 @@ class EEGWindowDataset(Dataset):
                 if r.get("split") == split:
                     self.items.append(WindowItem(r["path"], r["meta"], r["label"]))
 
+        # Normalize labels to display names
+        self.label_map = {
+            "musc": "Muscle",
+            "eyem": "Eye movement",
+            "elec": "Electrode",
+            "chew": "Chewing",
+            "shiv": "Shiver",
+            "Muscle": "Muscle",
+            "Eye movement": "Eye movement",
+            "Electrode": "Electrode",
+            "Chewing": "Chewing",
+            "Shiver": "Shiver",
+        }
+        for item in self.items:
+            item.label = self.label_map.get(item.label, item.label)
+
         # Build label to index mapping for classification
         labels = sorted({it.label for it in self.items})
         self.class_to_idx = {c: i for i, c in enumerate(labels)}
@@ -73,19 +90,32 @@ class EEGWindowDataset(Dataset):
         with open(it.meta, "r", encoding="utf-8") as f:
             meta = json.load(f)
 
+        # Convert to torch tensor
+        x = torch.from_numpy(x).float()
+
+        # Pad or truncate to fixed length
+        target_length = 250  # From config
+        if x.size(-1) < target_length:
+            # Pad with zeros
+            pad_size = target_length - x.size(-1)
+            x = F.pad(x, (0, pad_size))
+        elif x.size(-1) > target_length:
+            # Truncate
+            x = x[:, :target_length]
+
         # Apply the specified normalization
         if self.normalization == "wgan_minmax":
             # Min-max normalization to [-1, 1] for WGAN
-            mn = meta.get("min", float(np.min(x)))
-            mx = meta.get("max", float(np.max(x)))
+            mn = meta.get("min", x.min().item())
+            mx = meta.get("max", x.max().item())
             denom = (mx - mn) if (mx - mn) != 0 else 1.0
             x = 2.0 * (x - mn) / denom - 1.0
         elif self.normalization == "zscore":
             # Z-score normalization for DDPM
-            mu = x.mean(axis=-1, keepdims=True)
-            sd = x.std(axis=-1, keepdims=True) + 1e-8  # Add epsilon to avoid division by zero
+            mu = x.mean(dim=-1, keepdim=True)
+            sd = x.std(dim=-1, keepdim=True) + 1e-8  # Add epsilon to avoid division by zero
             x = (x - mu) / sd
 
         # Convert label to class index
         y = self.class_to_idx[it.label]
-        return torch.from_numpy(x).float(), int(y)
+        return x, int(y)

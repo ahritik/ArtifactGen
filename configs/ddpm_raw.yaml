@@ -26,7 +26,7 @@ training:
 model:
   channels: 8
   length: 500
-  num_classes: 6
+  num_classes: 5
   unet:
     base_channels: 64
     channel_mults: [1, 2, 4]

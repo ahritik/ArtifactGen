@@ -35,7 +35,7 @@ class WGANGPGenerator(nn.Module):
             nn.ReLU(True),
             nn.ConvTranspose1d(d // 2, d // 4, kernel_size=4, stride=2, padding=1),  # Upsample x2
             nn.ReLU(True),
-            nn.ConvTranspose1d(d // 4, channels, kernel_size=4, stride=2, padding=1),  # Upsample x2, output channels
+            nn.ConvTranspose1d(d // 4, channels, kernel_size=6, stride=2, padding=1),  # Upsample x2, output channels
             nn.Tanh(),  # Output in [-1, 1]
         )
 

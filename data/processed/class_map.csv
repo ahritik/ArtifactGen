@@ -1,18 +1,6 @@
-short,canonical
-chew,Chewing
-elec,Electrode Pop
-eyem,EOG
+short,display
 musc,Muscle
-shiv,Shivers
-chew_elec,Chewing+Electrode Pop
-eyem_chew,EOG+Chewing
-eyem_elec,EOG+Electrode Pop
-eyem_musc,EOG+Muscle
-eyem_shiv,EOG+Shivers
-musc_elec,Muscle+Electrode Pop
-shiv_elec,Shivers+Electrode Pop
-elpp,Electrode Pop
-eog,EOG
-eqrs,EKG
-mov,Movement
-muscle,Muscle
+eyem,Eye movement
+elec,Electrode
+chew,Chewing
+shiv,Shiver
