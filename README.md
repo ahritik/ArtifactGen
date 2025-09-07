@@ -22,6 +22,8 @@ The paper files are located in the `paper/` directory:
 
 - Python 3.12+
 - Install dependencies
+- Activate virtual environment: `.\venv\Scripts\Activate.ps1` (Windows) or `source venv/bin/activate` (Linux/Mac)
+- GPU support: Ensure CUDA is installed for PyTorch and CuPy for MNE GPU acceleration
 
 1) Prepare data
 
@@ -31,6 +33,7 @@ The paper files are located in the `paper/` directory:
 1) Train models
 
 - Use provided configs to train WGAN-GP or DDPM
+- Models will automatically use GPU if available
 
 1) Evaluate
 
@@ -86,6 +89,7 @@ See `ENVIRONMENT.md` for pinned versions, `paper/CITATIONS.bib` for references, 
 
 ## Notes
 
+- **GPU Support**: The pipeline automatically detects and uses CUDA GPUs where possible. PyTorch models are moved to GPU, MNE filtering uses GPU acceleration if CuPy is installed, and DataLoaders use pinned memory for faster transfers.
 - **Data Handling**: Subject-wise splits are enforced via metadata to prevent data leakage
 - **Normalization**:
   - WGAN uses per-window min-max normalization to [-1, 1] with min/max values stored for inversion

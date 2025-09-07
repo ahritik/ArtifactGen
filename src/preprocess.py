@@ -9,6 +9,18 @@ import numpy as np
 import yaml  # type: ignore
 import mne  # type: ignore
 import csv
+import tqdm
+
+# Enable CUDA for MNE if available
+try:
+    import cupy
+    mne.set_config('MNE_USE_CUDA', 'true')
+    print("MNE CUDA enabled")
+except ImportError:
+    print("CuPy not available, MNE will use CPU")
+
+# Suppress MNE INFO messages to avoid legacy warnings
+mne.set_log_level('WARNING')
 
 
 @dataclass
@@ -49,17 +61,11 @@ def load_cfg(path: str) -> PreprocessConfig:
     )
 
 
-def bandpass_notch(x: np.ndarray, fs: int) -> np.ndarray:
-    try:
-        from scipy import signal  # type: ignore
-    except ImportError:
-        return x
-    # 0.5–45 Hz band-pass (4th order Butterworth) + 60 Hz notch (Q=30)
-    b_bp, a_bp = signal.butter(4, [0.5 / (fs / 2), 45.0 / (fs / 2)], btype="band")
-    y = signal.filtfilt(b_bp, a_bp, x, axis=-1)
-    b_n, a_n = signal.iirnotch(w0=60.0 / (fs / 2), Q=30.0)
-    y = signal.filtfilt(b_n, a_n, y, axis=-1)
-    return y
+def bandpass_notch(raw: mne.io.Raw) -> mne.io.Raw:
+    # Use MNE's filtering which can leverage GPU if CUDA is enabled
+    raw_filtered = raw.copy().filter(l_freq=0.5, h_freq=45.0, method='fir', phase='zero')
+    raw_filtered.notch_filter(freqs=[60.0], method='fir', phase='zero')
+    return raw_filtered
 
 
 def subjectwise_splits(split_csv: str) -> Dict[str, str]:
@@ -96,7 +102,7 @@ def class_map(class_map_csv: str) -> Dict[str, str]:
 def iterate_raw_events(_dataset_root: str, _channels: List[str], cfg: PreprocessConfig) -> Generator[Dict, None, None]:
     # Implement TUAR iteration with MNE
     edf_root = Path(_dataset_root) / "edf"
-    for subdir in edf_root.glob("*"):
+    for subdir in edf_root.iterdir():
         if not subdir.is_dir():
             continue
         for edf_path in subdir.glob("*.edf"):
@@ -108,7 +114,11 @@ def iterate_raw_events(_dataset_root: str, _channels: List[str], cfg: Preprocess
             
             # Read EDF with MNE
             raw = mne.io.read_raw_edf(edf_path, preload=True, verbose=False)
-            raw.pick_types(eeg=True)  # Keep only EEG channels
+            # Pick only EEG channels and then select the specified channels
+            raw.pick_types(eeg=True)
+            raw.pick(cfg.channels)  # Select only the channels specified in config
+            if cfg.filtering == "filtered":
+                raw = bandpass_notch(raw)
             data = raw.get_data()  # Shape: (n_channels, n_samples)
             ch_names = raw.ch_names
             fs = int(raw.info['sfreq'])
@@ -121,8 +131,6 @@ def iterate_raw_events(_dataset_root: str, _channels: List[str], cfg: Preprocess
                     if len(row) < 5 or row[0].startswith("#") or row[0].lower() == "channel":
                         continue
                     ch, start, stop, label, conf = row[:5]
-                    if ch not in ch_names:
-                        continue
                     events.append({
                         "channel": ch,
                         "start": float(start),
@@ -150,10 +158,6 @@ def iterate_raw_events(_dataset_root: str, _channels: List[str], cfg: Preprocess
                 start_idx = int(window_start * fs)
                 end_idx = int(window_end * fs)
                 window_data = data[:, start_idx:end_idx]  # Shape: (n_channels, window_samples)
-                
-                # Apply filtering if needed
-                if cfg.filtering == "filtered":
-                    window_data = bandpass_notch(window_data, fs)
                 
                 # Yield dict
                 yield {
@@ -210,14 +214,11 @@ def main():
     win_s = cfg.window_seconds
 
     manifest = []
-    for ev in iterate_raw_events(cfg.dataset_root, cfg.channels, cfg):
+    for ev in tqdm.tqdm(iterate_raw_events(cfg.dataset_root, cfg.channels, cfg), desc="Processing events"):
         subj = ev["subject_id"]
         split = splits.get(subj, "train")
         label = cmap.get(ev["label"], ev["label"])  # map to canonical name if available
         arr = ev["array"]  # (C, T)
-
-        if cfg.filtering == "filtered":
-            arr = bandpass_notch(arr, fs)
 
         win_list = window_signal(arr, fs, win_s, cfg.overlap)
         _, windows = zip(*win_list) if win_list else ([], [])
