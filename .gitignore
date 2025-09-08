@@ -9,13 +9,19 @@ env/
 # Data
 /data/raw/
 /data/processed/**
-!data/processed/splits_subjectwise.csv
+!data/processed/suggested_splits_subjectwise.csv
+!data/processed/suggested_splits_subjectwise_multilabel.csv
 !data/processed/class_map.csv
 
 # Results
 /results/checkpoints/**
 /results/figures/**
 /results/manifest.json
+/results/split_summary.json
+/results/unusable_subjects.txt
+
+# TensorBoard logs (optional - uncomment to ignore)
+/results/tensorboard/**
 
 # Notebooks
 .ipynb_checkpoints/
