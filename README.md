@@ -7,6 +7,22 @@ This repository implements a reproducible pipeline to synthesize multi-channel E
 
 It targets the TUH EEG Artifact Corpus (TUAR) with subject-wise splits, robust preprocessing, and a comprehensive evaluation suite (signal-level, feature-space, and functional tasks like TRTS/TSTR and AugMix-style augmentation studies).
 
+## Project Status
+
+✅ **Data Processing Complete**: TUAR dataset has been processed with subject-wise stratified splits (149 train / 32 val / 32 test subjects)
+
+✅ **Exploration Analysis Done**: Comprehensive data exploration completed including:
+
+- Label distribution analysis across 5 artifact classes (Muscle, Eye movement, Electrode, Chewing, Shiver)
+- Channel-wise event frequency analysis
+- Duration distribution analysis with recommended window lengths
+- Dimensionality reduction visualizations (t-SNE, UMAP) of per-file artifact summaries
+- Multi-label stratified splitting to ensure balanced representation
+
+✅ **Training Infrastructure Ready**: Models configured and training scripts prepared for both WGAN-GP and DDPM architectures
+
+✅ **Initial Training Runs Completed**: TensorBoard logs indicate successful training runs with GPU acceleration
+
 ## Associated Paper
 
 The paper files are located in the `paper/` directory:
@@ -21,23 +37,27 @@ The paper files are located in the `paper/` directory:
 1) Set up environment
 
 - Python 3.12+
-- Install dependencies
-- Activate virtual environment: `.\venv\Scripts\Activate.ps1` (Windows) or `source venv/bin/activate` (Linux/Mac)
-- GPU support: Ensure CUDA is installed for PyTorch and CuPy for MNE GPU acceleration
+- Install dependencies: `pip install -r requirements.txt`
+- GPU support: CUDA 12.1+ for PyTorch acceleration, CuPy for MNE GPU operations
 
 1) Prepare data
 
 - Point `configs/*yaml` `data.dataset_root` to your local TUAR path
-- Run preprocessing to populate `data/processed`
+- Processed data already available in `data/processed/` including:
+  - Subject-wise stratified splits (`suggested_splits_subjectwise_multilabel.csv`)
+  - Class mappings (`class_map.csv`)
+  - Pre-computed data statistics
 
 1) Train models
 
 - Use provided configs to train WGAN-GP or DDPM
-- Models will automatically use GPU if available
+- Models automatically detect and use GPU if available
+- Monitor training with TensorBoard: `tensorboard --logdir results/tensorboard/`
 
 1) Evaluate
 
 - Run signal, feature, and functional metrics
+- View results in `results/figures/` and `results/manifest.json`
 
 ## Repo Layout
 
@@ -46,6 +66,7 @@ The paper files are located in the `paper/` directory:
   - `raw/`             Raw data files
   - `processed/`       Processed data including class mappings and split suggestions
 - `notebooks/`         Jupyter notebooks for data exploration and visualization
+  - `exploration.ipynb` Comprehensive TUAR dataset analysis and visualization
 - `paper/`             Paper-related files for NeurIPS 2025 submission
   - `CITATIONS.bib`    Bibliography references
   - `neurips_2025.pdf` Compiled PDF of the paper
@@ -55,6 +76,7 @@ The paper files are located in the `paper/` directory:
   - `checkpoints/`     Saved model weights
   - `figures/`         Generated plots and visualizations
   - `manifest.json`    Metadata about results
+  - `tensorboard/`     Training logs and metrics
 - `scripts/`           Bash scripts for running preprocessing, training, and evaluation
   - `run_preprocessing.sh` Script to preprocess raw data
   - `run_training.sh`      Script to train models
@@ -76,14 +98,40 @@ The paper files are located in the `paper/` directory:
 - `requirements.txt`   Python dependencies
 
 
+## Current Features
+
+### Data Processing
+
+- **Subject-wise splits**: 213 total subjects split into 149 train / 32 val / 32 test
+- **Multi-label stratification**: Ensures balanced representation of all 5 artifact classes
+- **Window extraction**: Configurable window lengths (1s/2s) with overlap options
+- **Normalization strategies**: Per-window min-max for WGAN, per-recording z-score for DDPM
+
+### Model Architectures
+
+- **WGAN-GP**: Projection discriminator, gradient penalty, spectral normalization
+- **DDPM**: 1D U-Net with classifier-free guidance, configurable noise schedules
+- **GPU acceleration**: Automatic CUDA detection for both PyTorch and MNE operations
+
+### Evaluation Suite
+
+- **Signal-level metrics**: Fidelity measures, reconstruction quality
+- **Feature-space metrics**: Distribution matching, embedding comparisons
+- **Functional metrics**: TRTS/TSTR evaluation, AugMix-style augmentation studies
+
 ## Minimal Repro Steps
 
-- Preprocess
-  - scripts/run_preprocessing.sh configs/wgan_raw.yaml
-- Train (WGAN example)
-  - scripts/run_training.sh configs/wgan_raw.yaml
-- Evaluate
-  - scripts/run_evaluation.sh configs/wgan_raw.yaml
+- Preprocess: `scripts/run_preprocessing.sh configs/wgan_raw.yaml`
+- Train (WGAN example): `scripts/run_training.sh configs/wgan_raw.yaml`
+- Evaluate: `scripts/run_evaluation.sh configs/wgan_raw.yaml`
+
+## Recent Updates
+
+- **Python Version**: Updated to 3.12.11 for improved performance and compatibility
+- **Data Exploration**: Complete TUAR dataset analysis with visualization notebooks
+- **Training Infrastructure**: Configured for both WGAN-GP and DDPM with GPU support
+- **Results Tracking**: TensorBoard integration for monitoring training progress
+- **Documentation**: Updated setup instructions and project status
 
 See `ENVIRONMENT.md` for pinned versions, `paper/CITATIONS.bib` for references, and `LICENSE` for licensing. Replace example configs with your desired windows (1s/2s), filtering scheme (raw/filtered), and normalization strategies per model.
 
