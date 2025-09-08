@@ -80,12 +80,12 @@ class UNet1D(nn.Module):
         downs_channels = [ch]
         for i, m in enumerate(channel_mults):
             out_ch = base_channels * m
-            blocks = nn.ModuleList(
-                [
-                    ResBlock(ch, out_ch, cond_dim, dropout, dilation=(2 ** i if use_dilations else 1))
-                    for _ in range(num_res_blocks)
-                ]
-            )
+            blocks = nn.ModuleList()
+            current_ch = ch
+            for _ in range(num_res_blocks):
+                rb = ResBlock(current_ch, out_ch, cond_dim, dropout, dilation=(2 ** i if use_dilations else 1))
+                blocks.append(rb)
+                current_ch = out_ch
             self.downs.append(blocks)
             ch = out_ch
             downs_channels.append(ch)
@@ -99,9 +99,12 @@ class UNet1D(nn.Module):
         self.ups = nn.ModuleList()
         for i, m in reversed(list(enumerate(channel_mults))):
             out_ch = base_channels * m
-            blocks = nn.ModuleList(
-                [ResBlock(ch, out_ch, cond_dim, dropout) for _ in range(num_res_blocks)]
-            )
+            blocks = nn.ModuleList()
+            current_ch = ch
+            for _ in range(num_res_blocks):
+                rb = ResBlock(current_ch, out_ch, cond_dim, dropout)
+                blocks.append(rb)
+                current_ch = out_ch
             self.ups.append(blocks)
             if i != 0:
                 self.ups.append(nn.ModuleList([nn.ConvTranspose1d(out_ch, out_ch, kernel_size=4, stride=2, padding=1)]))

@@ -21,12 +21,12 @@ training:
   batch_size: 64
   epochs: 200
   n_critic: 5
-  lr: 1e-4
+  lr: 2e-4
   betas: [0.0, 0.9]
   grad_penalty_lambda: 10.0
-  spectral_loss_weight: 0.05
+  spectral_loss_weight: 0.0
   num_workers: 8
-  patience: 20
+  patience: 50
 
 # Model
 model:

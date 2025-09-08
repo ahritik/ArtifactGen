@@ -20,6 +20,8 @@ from .models.wgan import gradient_penalty
 def parse_args():
     ap = argparse.ArgumentParser()
     ap.add_argument('--config', type=str, required=True)
+    ap.add_argument('--resume', type=str, default=None, help='Path to model checkpoint to resume from (model state_dict)')
+    ap.add_argument('--start-epoch', type=int, default=0, help='Epoch index to start from (useful when resuming and wanting TensorBoard/filenames to continue numbering)')
     return ap.parse_args()
 
 
@@ -33,19 +35,38 @@ def set_seed(seed: int):
     torch.cuda.manual_seed_all(seed)
 
 
-def train_wgan(cfg, device: torch.device):
+def train_wgan(cfg, device: torch.device, resume: str | None = None, start_epoch: int = 0):
     data_root = cfg['data']['processed_root']
     num_classes = int(cfg['model']['num_classes'])
     channels = int(cfg['model']['channels'])
     length = int(cfg['model']['length'])
 
     # Create dataset and dataloader for training
-    ds = EEGWindowDataset(data_root, split='train', normalization='wgan_minmax')
+    ds = EEGWindowDataset(data_root, split='train', normalization='wgan_minmax', length=length)
     dl = DataLoader(ds, batch_size=cfg['training']['batch_size'], shuffle=True, num_workers=cfg['training'].get('num_workers', 4), pin_memory=True)
 
     # Initialize generator and critic models
     G = WGANGPGenerator(cfg['model']['z_dim'], channels, length, num_classes).to(device)
     D = WGANGPCritic(channels, num_classes).to(device)
+
+    # Optionally load pre-trained weights (model state_dict)
+    if resume is not None:
+        try:
+            ck = torch.load(resume, map_location=device)
+            # support both raw state_dict and wrapper dicts
+            if isinstance(ck, dict) and 'model' in ck:
+                G.load_state_dict(ck['model'])
+            else:
+                # try to load into generator; if that fails, try to load into generator state
+                try:
+                    G.load_state_dict(ck)
+                except Exception:
+                    # maybe checkpoint contains generator and critic keys
+                    if isinstance(ck, dict) and 'G' in ck and 'D' in ck:
+                        G.load_state_dict(ck['G'])
+                        D.load_state_dict(ck['D'])
+        except Exception:
+            pass
 
     # Optimizers for generator and critic
     opt_g = optim.Adam(G.parameters(), lr=float(cfg['training']['lr']), betas=tuple(cfg['training']['betas']), weight_decay=0.0)
@@ -65,7 +86,7 @@ def train_wgan(cfg, device: torch.device):
     patience_counter = 0
 
     # Training loop
-    for epoch in tqdm.tqdm(range(cfg['training']['epochs']), desc='WGAN Training'):
+    for epoch in tqdm.tqdm(range(start_epoch, cfg['training']['epochs']), desc='WGAN Training'):
         epoch_loss_g = 0.0
         for _i, (x, y) in enumerate(dl):
             x = x.to(device)
@@ -125,19 +146,30 @@ def train_wgan(cfg, device: torch.device):
                 print(f'Early stopping at epoch {epoch+1} due to no improvement in generator loss.')
                 break
 
+        # Also save latest and per-epoch checkpoints so we have intermediate snapshots
+        try:
+            torch.save(G.state_dict(), f'results/checkpoints/wgan_generator_epoch_{epoch+1}.pth')
+            torch.save(D.state_dict(), f'results/checkpoints/wgan_critic_epoch_{epoch+1}.pth')
+            torch.save(G.state_dict(), 'results/checkpoints/wgan_generator_latest.pth')
+            torch.save(D.state_dict(), 'results/checkpoints/wgan_critic_latest.pth')
+        except Exception:
+            # non-fatal: continue training even if saving an epoch checkpoint fails
+            pass
+
         # Print progress every 10 epochs
         if (epoch + 1) % 10 == 0:
-            print(f'[WGAN] Epoch {epoch+1} | D: {loss_d.item():.4f} G: {loss_g.item():.4f}')
+            print(f'[WGAN] Epoch {epoch+1} | D: {loss_d.item():.4f} G: {loss_g.item():.4f} | Avg G Loss: {epoch_loss_g:.4f}')
 
     writer.close()
 
 
-def train_ddpm(cfg, device: torch.device):
+def train_ddpm(cfg, device: torch.device, resume: str | None = None, start_epoch: int = 0):
     data_root = cfg['data']['processed_root']
     num_classes = int(cfg['model']['num_classes'])
     channels = int(cfg['model']['channels'])
+    length = int(cfg['model']['length'])
 
-    ds = EEGWindowDataset(data_root, split='train', normalization='zscore')
+    ds = EEGWindowDataset(data_root, split='train', normalization='zscore', length=length)
     dl = DataLoader(ds, batch_size=cfg['training']['batch_size'], shuffle=True, num_workers=cfg['training'].get('num_workers', 4), pin_memory=True)
 
     unet_cfg = cfg['model'].get('unet', {})
@@ -152,6 +184,33 @@ def train_ddpm(cfg, device: torch.device):
     ).to(device)
 
     opt = optim.AdamW(net.parameters(), lr=float(cfg['training']['lr']), weight_decay=0.0)
+    # Load resume checkpoint if provided (supports both old model-only and new dict with opt+epoch)
+    if resume is not None:
+        try:
+            ck = torch.load(resume, map_location=device)
+            # new-style checkpoint: dict with model,opt,epoch
+            if isinstance(ck, dict) and 'model' in ck:
+                net.load_state_dict(ck['model'])
+                if 'opt' in ck:
+                    try:
+                        opt.load_state_dict(ck['opt'])
+                    except Exception:
+                        # if optimizer state doesn't match exactly, skip loading it
+                        pass
+                # if epoch stored, start from next epoch
+                if 'epoch' in ck:
+                    try:
+                        start_epoch = int(ck['epoch']) + 1
+                    except Exception:
+                        pass
+            else:
+                # old checkpoint: raw state_dict
+                try:
+                    net.load_state_dict(ck)
+                except Exception:
+                    pass
+        except Exception:
+            pass
     T = 1000
     betas = torch.linspace(1e-4, 2e-2, T, device=device)
     alphas = 1.0 - betas
@@ -163,7 +222,7 @@ def train_ddpm(cfg, device: torch.device):
     best_loss = float('inf')
     patience_counter = 0
 
-    for epoch in tqdm.tqdm(range(cfg['training']['epochs']), desc='DDPM Training'):
+    for epoch in tqdm.tqdm(range(start_epoch, cfg['training']['epochs']), desc='DDPM Training'):
         epoch_loss = 0.0
         for x, y in dl:
             x = x.to(device)
@@ -190,13 +249,30 @@ def train_ddpm(cfg, device: torch.device):
         if epoch_loss < best_loss:
             best_loss = epoch_loss
             patience_counter = 0
-            # Save best model
-            torch.save(net.state_dict(), 'results/checkpoints/ddpm_unet_best.pth')
+            # Save best model (include optimizer and epoch for full resume)
+            try:
+                torch.save({'model': net.state_dict(), 'opt': opt.state_dict(), 'epoch': epoch}, 'results/checkpoints/ddpm_unet_best.pth')
+            except Exception:
+                # fallback to model-only save
+                torch.save(net.state_dict(), 'results/checkpoints/ddpm_unet_best.pth')
         else:
             patience_counter += 1
             if patience_counter >= patience:
                 print(f'Early stopping at epoch {epoch+1} due to no improvement in MSE loss.')
                 break
+
+        # Save per-epoch and latest checkpoints for DDPM (include optimizer + epoch)
+        try:
+            ck = {'model': net.state_dict(), 'opt': opt.state_dict(), 'epoch': epoch}
+            torch.save(ck, f'results/checkpoints/ddpm_unet_epoch_{epoch+1}.pth')
+            torch.save(ck, 'results/checkpoints/ddpm_unet_latest.pth')
+        except Exception:
+            # fallback to model-only saves
+            try:
+                torch.save(net.state_dict(), f'results/checkpoints/ddpm_unet_epoch_{epoch+1}.pth')
+                torch.save(net.state_dict(), 'results/checkpoints/ddpm_unet_latest.pth')
+            except Exception:
+                pass
 
         if (epoch + 1) % 10 == 0:
             print(f'[DDPM] Epoch {epoch+1} | MSE: {loss.item():.4f}')
@@ -216,9 +292,9 @@ def main():
     os.makedirs('results/checkpoints', exist_ok=True)
 
     if model_kind == 'wgan_gp':
-        train_wgan(cfg, device)
+        train_wgan(cfg, device, resume=args.resume, start_epoch=args.start_epoch)
     elif model_kind == 'ddpm':
-        train_ddpm(cfg, device)
+        train_ddpm(cfg, device, resume=args.resume, start_epoch=args.start_epoch)
     else:
         raise ValueError(f'Unknown model: {model_kind}')
 

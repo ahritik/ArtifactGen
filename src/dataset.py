@@ -33,10 +33,11 @@ class EEGWindowDataset(Dataset):
         normalization (str): Normalization method ('none', 'wgan_minmax', or 'zscore').
     """
 
-    def __init__(self, root: str, split: str, normalization: str = "none") -> None:
+    def __init__(self, root: str, split: str, normalization: str = "none", length: int = 250) -> None:
         self.root = Path(root)
         self.split = split
         self.normalization = normalization
+        self.length = length
 
         self.items: List[WindowItem] = []
         # Load manifest file to get list of items for the specified split
@@ -94,7 +95,7 @@ class EEGWindowDataset(Dataset):
         x = torch.from_numpy(x).float()
 
         # Pad or truncate to fixed length
-        target_length = 250  # From config
+        target_length = self.length
         if x.size(-1) < target_length:
             # Pad with zeros
             pad_size = target_length - x.size(-1)
