@@ -40,7 +40,7 @@ The paper files are located in the `paper/` directory:
 - Install dependencies: `pip install -r requirements.txt`
 - GPU support: CUDA 12.1+ for PyTorch acceleration, CuPy for MNE GPU operations
 
-1) Prepare data
+2) Prepare data
 
 - Point `configs/*yaml` `data.dataset_root` to your local TUAR path
 - Processed data already available in `data/processed/` including:
@@ -48,16 +48,47 @@ The paper files are located in the `paper/` directory:
   - Class mappings (`class_map.csv`)
   - Pre-computed data statistics
 
-1) Train models
+3) Train models
 
 - Use provided configs to train WGAN-GP or DDPM
 - Models automatically detect and use GPU if available
 - Monitor training with TensorBoard: `tensorboard --logdir results/tensorboard/`
 
-1) Evaluate
+4) Evaluate
 
 - Run signal, feature, and functional metrics
 - View results in `results/figures/` and `results/manifest.json`
+
+- You can also run the Python evaluation script directly:
+
+  ```powershell
+  python scripts/eval_ddpm_checkpoint.py --config configs/ddpm_raw.yaml --checkpoint results/checkpoints/ddpm_unet_best.pth
+  ```
+
+## Jupyter Notebooks
+
+Explore and visualize results in the following notebooks (open with Jupyter Lab or VS Code):
+
+- `notebooks/exploration.ipynb` — Data exploration
+- `notebooks/visualization.ipynb` — Visualizations
+- `notebooks/class_comparison.ipynb` — Class comparison analysis
+- `notebooks/model_comparison.ipynb` — Model comparison analysis
+
+## Where to Find Everything
+
+- **Configs:** `configs/` (YAML files for model and data settings)
+- **Processed Data & Metadata:** `data/processed/` (splits, class maps, statistics)
+- **Checkpoints & Results:** `results/checkpoints/`, `results/generated/`, `results/manifest.json`, `results/split_summary.json`
+- **TensorBoard Logs:** `results/tensorboard/`
+- **Paper Source & Figures:** `paper/`
+- **Scripts:** `scripts/` (for all main pipeline steps)
+- **Source Code:** `src/` (Python modules for all core logic)
+
+## Tips
+
+- All scripts are compatible with PowerShell on Windows.
+- Update config paths as needed for your local data.
+- For troubleshooting, see comments in scripts and notebooks.
 
 ## Repo Layout
 
@@ -152,3 +183,20 @@ See `ENVIRONMENT.md` for pinned versions, `paper/CITATIONS.bib` for references, 
 ## Citation
 
 If you use this work, please cite our PrePrint at arXiv:XXXX.XXXX (citation details to be added upon publication).
+
+## How to Run Everything
+
+All main scripts are in the `scripts/` folder and can be run from PowerShell on Windows:
+
+- **Preprocessing:**
+  ```powershell
+  ./scripts/run_preprocessing.sh
+  ```
+- **Training:**
+  ```powershell
+  ./scripts/run_training.sh
+  ```
+- **Evaluation:**
+  ```powershell
+  ./scripts/run_evaluation.sh
+  ```
