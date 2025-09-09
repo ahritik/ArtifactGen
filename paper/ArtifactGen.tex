@@ -12,6 +12,8 @@
 \usepackage{microtype}
 \usepackage{xcolor}
 \usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{natbib}
 
 \title{ArtifactGEN: High-Fidelity Synthesis of EEG Artifacts with WGAN-GP and Diffusion Models}
 
@@ -43,43 +45,110 @@ We present ArtifactGEN, an end-to-end, reproducible pipeline for synthesizing mu
 
 
 \section{Introduction}
-Artifacts in electroencephalography (EEG)---such as muscle activity, eye movements, electrode noise, chewing, and shivering---pose a major challenge for automated analysis and downstream clinical applications. Synthetic artifact segments can support data augmentation, algorithm stress testing, and robustness benchmarking without additional human labeling. However, artifact synthesis requires models that respect signal morphology, spectral properties, and channel correlations while remaining label aware.
+Artifacts in electroencephalography (EEG)—including muscle activity, eye movements, electrode noise, chewing, and shivering—routinely confound automated analysis and downstream clinical applications by distorting morphology, spectra, and cross-channel correlations. While artifact removal is well studied \citep{uriguen2015artifactremoval,jiang2019artifactremoval}, realistic \emph{synthesis} of artifact segments can complement curation efforts by enabling data augmentation, algorithm stress testing, and robustness benchmarking without additional human labeling. The challenge is to synthesize multi-channel windows that remain label-aware while respecting signal morphology, spectral structure, and channel covariance.
 
-We introduce ArtifactGEN, a practical framework that combines a conditional WGAN-GP with projection discriminator and a denoising diffusion model tailored to 1D multi-channel time series. ArtifactGEN provides: (i) curated, subject-wise splits and preprocessing tailored to artifact windows; (ii) two strong conditional generators with complementary biases; and (iii) a comprehensive, reproducible evaluation protocol. Our contributions are:
+We introduce \textsc{ArtifactGen}, a practical and \emph{reproducible} framework for artifact-conditioned EEG synthesis built on subject-wise splits from the TUH EEG corpus and its artifact-annotated subset (TUAR) \citep{obeid2016tuh,hamid2020tuar}. \textsc{ArtifactGen} marries two complementary generative paradigms: (i) a conditional WGAN-GP with a projection discriminator for stable, label-aware synthesis \citep{gulrajani2017improved,miyato2018cgans}, and (ii) a denoising diffusion model using a 1D U-Net with FiLM-style conditioning \citep{perez2018film} and classifier-free guidance for controllability and sample quality \citep{ho2020denoising,ho2022classifierfree}. The pipeline standardizes preprocessing for fixed-length windows with configurable normalization, exposes training/evaluation via YAML configs, and ships analysis notebooks to facilitate faithful ablations and apples-to-apples comparisons.
+
+Beyond single-number heuristics, \textsc{ArtifactGen} emphasizes a time-series-appropriate evaluation suite: (i) signal-level descriptors (e.g., Welch band-power deltas and covariance/ACF distances) to test morphology and spectra \citep{welch1967psd}; (ii) feature-space metrics (FID/KID/PRD) to quantify fidelity–coverage trade-offs \citep{heusel2017gans,binkowski2018demystifying,sajjadi2018assessing}; and (iii) functional tests—train-real/test-synth, train-synth/test-real, and AugMix-style augmentation—to probe utility and robustness \citep{hendrycks2020augmix}. We release code, configuration files, and notebooks to support rigorous baselining and community progress on EEG artifact generation and augmentation.
+
+\paragraph{Contributions.}
 \begin{itemize}
-    \item A subject-wise pipeline to curate labeled artifact windows with robust normalization and fixed-length padding/truncation.
+    \item A subject-wise pipeline to curate labeled artifact windows with robust normalization and fixed-length padding/truncation \citep{obeid2016tuh,hamid2020tuar}.
     \item A conditional WGAN-GP with projection discriminator for stable, label-aware synthesis \citep{gulrajani2017improved,miyato2018cgans}.
-    \item A 1D diffusion model with FiLM conditioning and classifier-free guidance \citep{ho2020denoising,ho2022classifierfree}.
-    \item A transparent evaluation suite spanning signal-level properties, feature-space distances (FID/KID/PRD) \citep{heusel2017gans,binkowski2018demystifying,sajjadi2018assessing}, and functional tests including AugMix-style augmentation \citep{hendrycks2020augmix}.
+    \item A 1D diffusion model with FiLM conditioning and classifier-free guidance \citep{perez2018film,ho2020denoising,ho2022classifierfree}.
+    \item A transparent evaluation suite spanning signal-level properties, feature-space distances (FID/KID/PRD), and functional tests including AugMix-style augmentation \citep{heusel2017gans,binkowski2018demystifying,sajjadi2018assessing,hendrycks2020augmix,welch1967psd}.
 \end{itemize}
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \section{Background}
 
+Electroencephalography (EEG) is indispensable in clinical neurophysiology, yet real-world recordings are rife with non-neural artifacts—ocular movements, muscle activity, chewing, shivering, and electrode noise—that degrade downstream analysis and confound learning systems. Decades of signal-processing work have characterized these artifacts and proposed removal strategies, underscoring their broad spectral footprint and nonstationary morphology \citep{uriguengarciazapirain2015}. Large public corpora such as the Temple University Hospital EEG (TUH EEG) data \citep{obeid2016temple} and its artifact-focused subset, the Temple University Artifact Corpus (TUAR) \citep{hamid2020tuar}, enable supervised benchmarking but remain label- and condition-limited for training robust models that must generalize across subjects, montages, and acquisition conditions.
+
+Generative modeling offers a complementary route: synthesize realistic artifact segments to (i) augment scarce classes, (ii) stress-test detector robustness, and (iii) study failure modes under controlled perturbations. Among competing paradigms, Generative Adversarial Networks (GANs) and Denoising Diffusion Probabilistic Models (DDPMs) dominate recent progress. GANs are sample-efficient but historically fragile; Wasserstein GANs with gradient penalty (WGAN-GP) improved stability and convergence by enforcing a soft Lipschitz constraint on the critic \citep{gulrajani2017improved}. For class-conditional generation, the projection discriminator embeds labels into the critic, providing a principled, label-aware training signal that scales well with many classes \citep{miyato2018cgans}. 
+
+Diffusion models take an alternative path, learning to invert a gradual noising process and achieving state-of-the-art generative quality across domains \citep{ho2020denoising}. Practical refinements—including learned variance and hybrid training objectives—further reduce sampling cost while preserving fidelity \citep{nichol2021improved}. For conditional synthesis, classifier-free guidance yields strong label adherence with tunable trade-offs between diversity and faithfulness \citep{ho2022classifierfree}. Compared to GANs, diffusion models typically exhibit more stable training and better mode coverage, albeit with higher sampling latency—an important consideration for time-series pipelines.
+
+Evaluating synthetic EEG requires metrics aligned with neurophysiological structure rather than image heuristics. Power spectral density (PSD) via Welch’s method provides band-power comparisons in canonical $\delta$/$\theta$/$\alpha$/$\beta$ bands, capturing key frequency-domain shifts induced by artifacts \citep{welch1967fft}. Temporal structure can be probed by autocorrelation statistics, while cross-channel dependencies—crucial in multi-lead EEG—are reflected in covariance distances. Complementary distributional tests quantify fidelity and coverage: precision–recall for distributions (PRD) disentangles sample quality from support coverage \citep{sajjadi2018assessing}, and maximum mean discrepancy (MMD) offers a kernel-based two-sample statistic sensitive to higher-order differences \citep{binkowski2018demystifying}. 
+
+Within EEG specifically, recent surveys document growing use of GANs for augmentation and domain shifts across BCI and clinical tasks, while highlighting persistent gaps in label control, spectral realism, and reproducibility \citep{habashi2023ganeeg}. In parallel, compact discriminative backbones (e.g., EEGNet) provide downstream validators whose behavior on synthetic vs.\ real segments can reveal class-specific mismatches \citep{lawhern2018eegnet}. Together, these developments motivate a careful, \emph{label-aware} comparison between conditional WGAN-GP and conditional diffusion for artifact synthesis on TUAR, under subject-wise splits and an evaluation suite that balances spectral, temporal, multichannel, and distributional criteria.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \section{Related Work}
-	extbf{Wasserstein GANs.} WGAN-GP stabilizes adversarial training by enforcing a soft 1-Lipschitz constraint via a gradient penalty \citep{gulrajani2017improved}. Label conditioning via projection in the discriminator improves fidelity and semantic control \citep{miyato2018cgans}.
 
-	extbf{Diffusion models.} Denoising diffusion probabilistic models (DDPMs) learn to invert a fixed noising process and produce high-fidelity samples \citep{ho2020denoising}. Classifier-free guidance trades off diversity and fidelity without a separate classifier \citep{ho2022classifierfree}. We adopt a 1D U-Net backbone for time series inspired by U-Net-style architectures \citep{ronneberger2015u}.
+\paragraph{Wasserstein GANs and conditioning for time series.}
+The Wasserstein GAN with gradient penalty (WGAN-GP) stabilizes adversarial training by softly enforcing the 1-Lipschitz constraint \citep{gulrajani2017improved}. For semantic control, class-conditional GANs with a projection discriminator inject labels into the critic, improving fidelity and label-faithfulness without auxiliary classifiers \citep{miyato2018cgans}. In 1D signals (audio and other biosignals), fully convolutional generators and discriminators (e.g., WaveGAN) motivated architectural choices that preserve local stationarity while capturing long-range context \citep{donahue2018wavegan}. 
 
-	extbf{Evaluation of generative models.} Feature-space distances such as FID \citep{heusel2017gans} and KID \citep{binkowski2018demystifying}, and precision/recall curves for distributions \citep{sajjadi2018assessing} are standard for images; we adapt them by extracting features from an EEG artifact classifier. Robustness-oriented augmentation like AugMix \citep{hendrycks2020augmix} can quantify downstream utility of synthetic data.
+\paragraph{Diffusion models for (neuro)physiological time series.}
+Denoising diffusion probabilistic models (DDPMs) learn to invert a fixed noising process and now set the bar for sample quality across domains \citep{ho2020denoising,nichol2021improved,dhariwal2021dmbeatgans}. Classifier-free guidance (CFG) trades off diversity and fidelity without a separate classifier, a practical tool for label-aware synthesis \citep{ho2022classifierfree}. Although most diffusion results target images, several works adapt them to time series via 1D U-Nets and score-based objectives; e.g., DiffWave for raw waveform synthesis and broader score-based SDE frameworks for sequences \citep{kong2020diffwave,song2020scoresde}. In neurophysiology specifically, recent models generate multichannel EEG/ECoG with strong realism and controllability \citep{vetter2024nddm,tosato2023eegdiffusion}. Our 1D U-Net with label conditioning follows this line, emphasizing artifact-aware control for EEG. We adopt FiLM-style conditioning to modulate intermediate features by condition vectors \citep{perez2018film}, and a U-Net backbone \citep{ronneberger2015unet} tailored to 1D signals.
+
+\paragraph{EEG datasets and artifact corpora.}
+We build on the Temple University Hospital EEG (TUH-EEG) ecosystem, the largest open clinical EEG collection \citep{obeid2016tuh}. For artifact-centric synthesis and evaluation, the TUH EEG Artifact Corpus (TUAR) provides dense annotations for common artifacts—eye movements, muscle, chewing, shiver, and electrode events—enabling subject-wise splits and label-aware benchmarking \citep{hamid2020tuar}. 
+
+\paragraph{Evaluation of generative models for EEG.}
+Image-native quality metrics such as FID \citep{heusel2017fid} and KID (polynomial-kernel MMD) \citep{binkowski2018kid}, and distributional precision/recall curves \citep{sajjadi2018prd,kynkaanniemi2019prdc} rely on features from a pretrained encoder; for EEG, we analogously extract features from artifact classifiers (e.g., EEGNet-style encoders) to adapt these ideas \citep{lawhern2018eegnet}. In addition, \emph{two-sample testing} provides principled sample–realism checks: kernel MMD \citep{gretton2012mmd} and classifier two-sample tests (C2ST), where a held-out accuracy near chance indicates good sample quality \citep{lopezpaz2016c2st}. Domain-aware signal metrics complement feature-space tests: Welch band-power deltas in canonical bands \citep{welch1967psd}, channel-covariance Frobenius distances, and ACF-based distances probe spectral shape, spatial coupling, and temporal dependence, respectively. We also report a simple 1-NN accuracy in the learned feature space as a pragmatic C2ST variant. 
+
+\paragraph{Utility as the ultimate yardstick.}
+Beyond proxy metrics, \emph{functional} evaluation—training downstream models with synthesized data—best captures whether synthetic artifacts help real tasks. Time-series work has advocated train-on-synthetic, test-on-real (TSTR) to quantify downstream utility \citep{yoon2019timegan}. In robustness-oriented vision, AugMix-style augmentation tests similarly relate synthetic perturbations to robustness improvements \citep{hendrycks2020augmix}. Our protocol prioritizes downstream artifact-recognition gains alongside fidelity/specificity, aligning with recent evidence that diffusion models tend to match or surpass GANs on both fidelity and coverage while remaining stable to train \citep{dhariwal2021dmbeatgans,nichol2021improved}.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
 \section{Dataset and Preprocessing}
-We work with EEG artifact segments originating from the Temple University Hospital EEG resources \citep{obeid2016temple}. Our curation enforces subject-wise splits to avoid leakage: 149 train, 32 validation, and 32 test subjects. We consider five artifact classes: Muscle, Eye movement, Electrode, Chewing, and Shiver. Windows are extracted at a fixed target length (e.g., 250 samples) and padded or truncated as needed. Two normalization strategies are supported: (i) per-window min-max to $[-1,1]$ for adversarial training and (ii) per-recording/channel z-score for diffusion. The repository includes metadata, class maps, and split manifests to reproduce these steps.
+\label{sec:data}
+We curate EEG artifact segments from the Temple University Hospital EEG resources \citep{obeid2016temple}. To prevent subject leakage, we enforce \emph{subject-wise} splits with \textbf{149} training, \textbf{32} validation, and \textbf{32} test subjects. We consider five artifact classes throughout: \{\textbf{Muscle}, \textbf{Eye}, \textbf{Electrode}, \textbf{Chewing}, \textbf{Shiver}\}. All scripts are configuration-driven and reproducible.
 
-\begin{figure}[t]
-    \centering
-    \includegraphics[width=.32\linewidth]{figs/label_dist_per_split_simple.png}\hfill
-    \includegraphics[width=.32\linewidth]{figs/channel_dist_per_split_multilabel.png}\hfill
-    \includegraphics[width=.32\linewidth]{figs/duration_boxplot_multilabel.png}
-    \caption{Data exploration: label distribution across splits, channel usage, and window duration statistics.}
-\end{figure}
+\paragraph{Channels and sampling.}
+We adopt a canonical eight-channel montage \(\{\text{Fp1}, \text{Fp2}, \text{C3}, \text{C4}, \text{O1}, \text{O2}, \text{T3}, \text{T4}\}\) at \(f_s = 250\) Hz. Only recordings with all required channels are admitted.
+
+\paragraph{Windowing and overlap.}
+Let \(x \in \mathbb{R}^{C \times T}\) denote a multi-channel clip (\(C{=}8\)). For a target window duration \(S\) seconds, the window length (in samples) is
+\begin{equation}
+L \;=\; \big\lfloor S \, f_s \big\rfloor .
+\end{equation}
+Windows are extracted with fractional overlap \(\rho \in [0,1)\) (default \(\rho{=}0.5\)), giving stride
+\begin{equation}
+s \;=\; \big\lfloor (1-\rho)\,L \big\rfloor .
+\end{equation}
+For an annotated interval of length \(T_i\) samples, the number of windows produced is
+\begin{equation}
+N_i \;=\; \max\!\Big(0,\; \Big\lfloor \frac{T_i - L}{s} \Big\rfloor + 1 \Big).
+\end{equation}
+Boundary fragments shorter than \(L\) are zero-padded; longer excerpts are truncated to exactly \(L\).
+We use \(S{=}1.0\) s (\(L{=}250\)) for the adversarial path and \(S{=}2.0\) s (\(L{=}500\)) for the diffusion path.
+
+\paragraph{Normalization (model-specific).}
+Two normalization schemes are implemented and selected per run:
+\begin{enumerate}
+\item \textbf{Per-window min--max to \([-1,1]\) (adversarial path).} For window \(x \in \mathbb{R}^{C\times L}\) with global per-window extrema \(m=\min_{c,t} x_{c,t}\) and \(M=\max_{c,t} x_{c,t}\), we map
+\begin{equation}
+\hat{x}_{c,t} \;=\; 2\,\frac{x_{c,t}-m}{\max(M-m,\epsilon)} \;-\; 1, \qquad \epsilon = 10^{-8}.
+\end{equation}
+If configured, the pair \((m,M)\) is persisted with the window metadata to enable consistent inverse-rescaling at load time.
+\item \textbf{Per-recording, per-channel \(z\)-score (diffusion path).} For channel \(c\) with mean \(\mu_c\) and standard deviation \(\sigma_c\) computed over the recording,
+\begin{equation}
+\tilde{x}_{c,t} \;=\; \frac{x_{c,t}-\mu_c}{\sigma_c + \epsilon}, \qquad \epsilon = 10^{-8}.
+\end{equation}
+\end{enumerate}
+
+\paragraph{Filtering.}
+Unless specified otherwise, we operate on \emph{raw} signals (no additional notch or band-pass filtering) to preserve artifact morphology; a filtered variant can be enabled without changing downstream loaders.
+
+\paragraph{Manifests, class maps, and splits.}
+We supply (i) a subject-wise split CSV ensuring disjoint identities across train/val/test; (ii) a stable class map for the five artifact labels; and (iii) a consolidated manifest (JSON) that records per-window paths, labels, subject IDs, normalization statistics, and the effective \(L\). These files fully reproduce dataset composition and preprocessing decisions.
+
+\paragraph{Configuration (exact defaults).}
+All data-related parameters are set via YAML and versioned with each run:
+\begin{itemize}
+\item \texttt{channels}: \([ \text{Fp1}, \text{Fp2}, \text{C3}, \text{C4}, \text{O1}, \text{O2}, \text{T3}, \text{T4} ]\), \quad \texttt{sample\_rate}: \(250\) Hz, \quad \texttt{overlap}: \(0.5\), \quad \texttt{filtering}: \texttt{raw}.
+\item \textbf{Adversarial path (WGAN-GP):} \texttt{window\_seconds} \(= 1.0\), \texttt{length} \(= 250\), per-window min--max scaling to \([-1,1]\) with optional min/max persistence.
+\item \textbf{Diffusion path (DDPM):} \texttt{window\_seconds} \(= 2.0\), \texttt{length} \(= 500\), per-recording, per-channel \(z\)-score normalization.
+\item \texttt{split\_csv}: subject-wise split manifest; \texttt{class\_map\_csv}: five-class map; \texttt{manifest}: consolidated JSON written alongside results.
+\end{itemize}
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
