@@ -187,7 +187,8 @@ def generate_samples(cfg: dict, ckpt_path: str, device: torch.device, model_kind
 
     x_np = x.numpy()
     y_np = y.numpy()
-    out_dir = Path('C:/works/ArtifactGen/results/generated')
+    # Save alongside other project artifacts
+    out_dir = Path('results/generated')
     out_dir.mkdir(parents=True, exist_ok=True)
     base = Path(ckpt_path).stem
     suffix = f'_class{class_id}' if class_id is not None else ''

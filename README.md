@@ -34,13 +34,13 @@ The paper files are located in the `paper/` directory:
 
 ## Quickstart
 
-1) Set up environment
+1. Set up environment
 
 - Python 3.12+
 - Install dependencies: `pip install -r requirements.txt`
 - GPU support: CUDA 12.1+ for PyTorch acceleration, CuPy for MNE GPU operations
 
-2) Prepare data
+1. Prepare data
 
 - Point `configs/*yaml` `data.dataset_root` to your local TUAR path
 - Processed data already available in `data/processed/` including:
@@ -48,22 +48,44 @@ The paper files are located in the `paper/` directory:
   - Class mappings (`class_map.csv`)
   - Pre-computed data statistics
 
-3) Train models
+1. Train models
 
 - Use provided configs to train WGAN-GP or DDPM
 - Models automatically detect and use GPU if available
 - Monitor training with TensorBoard: `tensorboard --logdir results/tensorboard/`
 
-4) Evaluate
+1. Evaluate
 
-- Run signal, feature, and functional metrics
-- View results in `results/figures/` and `results/manifest.json`
+- Run the full evaluation suite (signal, feature, functional, utility classifier):
 
-- You can also run the Python evaluation script directly:
-
-  ```powershell
-  python scripts/eval_ddpm_checkpoint.py --config configs/ddpm_raw.yaml --checkpoint results/checkpoints/ddpm_unet_best.pth
+  
+  ```bash
+  # zsh/bash
+  ./scripts/run_evaluation.sh configs/ddpm_raw.yaml
   ```
+
+- Or call individual evaluators:
+
+  
+  ```bash
+  # Signal-level metrics (band-power errors, channel correlation, PSD distance)
+  python -m src.eval.metrics_signal --config configs/ddpm_raw.yaml \
+    --ckpt results/checkpoints/ddpm_unet_best.pth --model-kind ddpm --n 256
+
+  # Feature-space metrics placeholder (MMD/PRD, t-SNE/UMAP):
+  python -m src.eval.metrics_feature --config configs/ddpm_raw.yaml
+
+  # Functional metrics placeholder (TRTS/TSTR, AugMix-style):
+  python -m src.eval.metrics_functional --config configs/ddpm_raw.yaml
+
+  # NEW: Classifier-based utility evaluation (train on real vs real+synthetic; eval on real test)
+  python -m src.eval.utility_classifier --config configs/ddpm_raw.yaml \
+    --ckpt-ddpm results/checkpoints/ddpm_unet_best.pth \
+    --ckpt-wgan results/checkpoints/wgan_generator_best.pth \
+    --n-synth-per-class 500 --epochs 10 --batch-size 64 --lr 1e-3
+  ```
+
+- Key outputs are written to `results/` as CSV and LaTeX tables ready for inclusion in the paper.
 
 ## Jupyter Notebooks
 
@@ -83,6 +105,7 @@ Explore and visualize results in the following notebooks (open with Jupyter Lab 
 - **Paper Source & Figures:** `paper/`
 - **Scripts:** `scripts/` (for all main pipeline steps)
 - **Source Code:** `src/` (Python modules for all core logic)
+  - `src/eval/utility_classifier.py` — trains a small 1D CNN on `real`, `real+wgan`, and `real+ddpm`, then evaluates on the held-out real test set; writes `results/utility_classifier.csv` and `results/table_utility.tex`.
 
 ## Tips
 
@@ -146,15 +169,42 @@ Explore and visualize results in the following notebooks (open with Jupyter Lab 
 
 ### Evaluation Suite
 
-- **Signal-level metrics**: Fidelity measures, reconstruction quality
-- **Feature-space metrics**: Distribution matching, embedding comparisons
+- **Signal-level metrics**: Welch band-power relative errors (δ/θ/α/β), channel-wise correlation, PSD L2 distance
+- **Feature-space metrics**: Distribution matching (MMD/PRD), embedding comparisons (t-SNE/UMAP)
 - **Functional metrics**: TRTS/TSTR evaluation, AugMix-style augmentation studies
+- **Utility classifier (NEW)**: Train a small 1D CNN on (i) real-only, (ii) real+WGAN, (iii) real+DDPM; evaluate accuracy and macro-F1 on the real test set to measure whether synthetic data improve performance on real data.
+
+#### Utility Classifier Protocol (what it does and why)
+
+- We measure downstream utility by training an identical classifier on three training sets and always evaluating on the held-out real test set:
+  1) `real` (baseline), 2) `real+wgan`, 3) `real+ddpm`.
+- Synthetic windows are generated per class using the best checkpoints with explicit class conditioning (we pass `class_id=c` into the generator), so each artifact class is represented accurately.
+- To avoid normalization confounds, both real and synthetic training windows are z-scored per window at classifier-training time.
+- We report accuracy and macro-F1 (class-balanced) on the real test set.
+- Reproducible outputs:
+  - `results/utility_classifier.csv`
+  - `results/table_utility.tex`
+
+Run it directly:
+
+```bash
+python -m src.eval.utility_classifier \
+  --config configs/ddpm_raw.yaml \
+  --ckpt-ddpm results/checkpoints/ddpm_unet_best.pth \
+  --ckpt-wgan results/checkpoints/wgan_generator_best.pth \
+  --n-synth-per-class 500 --epochs 10 --batch-size 64 --lr 1e-3
+```
 
 ## Minimal Repro Steps
 
 - Preprocess: `scripts/run_preprocessing.sh configs/wgan_raw.yaml`
 - Train (WGAN example): `scripts/run_training.sh configs/wgan_raw.yaml`
 - Evaluate: `scripts/run_evaluation.sh configs/wgan_raw.yaml`
+
+### Notable Evaluation Artifacts
+
+- Signal metrics: `results/signal_metrics.csv`, LaTeX `results/table_bandpower.tex`
+- Utility classifier: `results/utility_classifier.csv`, LaTeX `results/table_utility.tex`
 
 ## Recent Updates
 
@@ -189,14 +239,17 @@ If you use this work, please cite our PrePrint at arXiv:XXXX.XXXX (citation deta
 All main scripts are in the `scripts/` folder and can be run from PowerShell on Windows:
 
 - **Preprocessing:**
+
   ```powershell
   ./scripts/run_preprocessing.sh
   ```
 - **Training:**
+
   ```powershell
   ./scripts/run_training.sh
   ```
 - **Evaluation:**
+
   ```powershell
   ./scripts/run_evaluation.sh
-  ```
+  

@@ -244,6 +244,9 @@ To assess sample variety we report a simple \emph{diversity} score defined as $1
 \paragraph{Usage in this work.}
 All metrics above are computed per model; bandwise relative errors are reported for each of $\delta/\theta/\alpha/\beta/\gamma$, channel-level mean discrepancies are provided for channels $c\!=\!0,\dots,4$, and global metrics include $\mathrm{MMD}$ (pairwise), PSD $L_2$ error, and the diversity proxy. These statistics are the basis of our quantitative comparisons between DDPM and WGAN in the present study.
 
+\paragraph{Classifier-based utility evaluation (TRTR, TRTS).}
+To directly measure \emph{utility}, we train a small 1D CNN classifier on three training sets and evaluate all on the held-out real test set: (i) Real-only (TRTR), (ii) Real+WGAN, and (iii) Real+DDPM. For the synthetic mixtures, we generate a fixed number of windows per artifact class using the \emph{best} checkpoint of each model (WGAN-GP generator; DDPM EMA weights), with class-conditional sampling enforced by passing the intended label ID during generation. Synthetic windows follow the same length and per-model normalization as in training; at classifier training time we apply per-window $z$-score to both real and synthetic windows to unify scale. The classifier architecture is a 1D ConvNet (three blocks, global average pooling) trained with cross-entropy for $10$ epochs. We report accuracy and macro-F1 on the real test set. This protocol evaluates whether synthetic data improve discriminative performance on real data while controlling for class balance by fixing the number of synthetic samples per class. Implementation is provided via \texttt{src/eval/utility\_classifier.py}, and results are tabulated in \texttt{results/table\_utility.tex} for direct inclusion.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \section{Discussion}
