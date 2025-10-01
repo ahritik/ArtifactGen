@@ -27,6 +27,7 @@ def _band_edges() -> Dict[str, Tuple[float, float]]:
         "theta": (4.0, 8.0),
         "alpha": (8.0, 13.0),
         "beta": (13.0, 30.0),
+        "gamma": (30.0, 45.0),  # extended high-frequency band for artifact energy
     }
 
 
@@ -39,7 +40,8 @@ def power_bands(x: np.ndarray, fs: int) -> Dict[str, float]:
     out: Dict[str, float] = {}
     for name, (lo, hi) in bands.items():
         m = (freqs >= lo) & (freqs < hi)
-    out[name] = float(float(np.trapz(psd[m], freqs[m])) / total)
+        band_power = float(np.trapz(psd[m], freqs[m])) / total
+        out[name] = band_power
     return out
 
 
@@ -113,7 +115,7 @@ def main():
     bp_real = power_bands(x_real, fs)
     bp_gen = power_bands(x_gen, fs)
     bands = list(_band_edges().keys())
-    bp_err = {f"bp_rel_err_{b}": abs(bp_gen[b] - bp_real[b]) for b in bands}
+    bp_err = {f"bp_rel_err_{b}": abs(bp_gen[b] - bp_real[b])/(bp_real[b] + 1e-12) for b in bands}
     ch_corr = channel_correlation(x_real, x_gen)
     psd_dist = psd_l2_distance(x_real, x_gen, fs)
 

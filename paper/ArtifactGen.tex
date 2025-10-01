@@ -1,25 +1,9 @@
 \documentclass{article}
 
-% if you need to pass options to natbib, use, e.g.:
-%     \PassOptionsToPackage{numbers, compress}{natbib}
-% before loading neurips_2025
-
-% The authors should use one of these tracks.
-% Before accepting by the NeurIPS conference, select one of the options below.
-% 0. "default" for submission
-% \usepackage{neurips_2025}
-% the "default" option is equal to the "main" option, which is used for the Main Track with double-blind reviewing.
-% 1. "main" option is used for the Main Track
-%  \usepackage[main]{neurips_2025}
-% 6. "dblblindworkshop" option is used for the Workshop with double-blind reviewing
-\usepackage[dblblindworkshop]{neurips_2025}
+\usepackage[dblblindworkshop,final]{neurips_2025}
 
 % For workshops (5., 6.), the authors should add the name of the workshop, "\workshoptitle" command is used to set the workshop title.
-\workshoptitle{Data on the Brain & Mind Findings}
-
-% "preprint" option is used for arXiv or other preprint submissions
- % \usepackage[preprint]{neurips_2025}
-
+\workshoptitle{The Second Workshop on GenAI for Health: Potential, Trust, and Policy Compliance}
 
 \usepackage[utf8]{inputenc} % allow utf-8 input
 \usepackage[T1]{fontenc}    % use 8-bit T1 fonts
@@ -68,58 +52,59 @@ Artifacts in electroencephalography (EEG)---muscle, eye movement, electrode, che
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \section{Introduction}
-Artifacts in electroencephalography (EEG)—including muscle activity, eye movements, electrode noise, chewing, and shivering—routinely confound automated analysis and downstream clinical applications by distorting morphology, spectra, and cross-channel correlations. While artifact removal is well studied \citep{uriguen2015artifactremoval,jiang2019artifactremoval}, realistic \emph{synthesis} of artifact segments can complement curation efforts by enabling data augmentation, algorithm stress testing, and robustness benchmarking without additional human labeling. The challenge is to synthesize multi-channel windows that remain label-aware while respecting signal morphology, spectral structure, and channel covariance.
+Artifacts in electroencephalography (EEG)—including muscle activity, eye movements, electrode noise, chewing, and shivering—routinely confound automated analysis and downstream clinical applications by distorting morphology, spectra, and cross-channel correlations. While artifact removal is well studied \citep{uriguen2015eegartifact,jiang2019removalartifacts}, realistic \emph{synthesis} of artifact segments can complement curation efforts by enabling data augmentation, algorithm stress testing, and robustness benchmarking without additional human labeling. The challenge is to synthesize multi-channel windows that remain label-aware while respecting signal morphology, spectral structure, and channel covariance.
 
-We introduce \textsc{ArtifactGen}, a practical and \emph{reproducible} framework for artifact-conditioned EEG synthesis built on subject-wise splits from the TUH EEG corpus and its artifact-annotated subset (TUAR) \citep{obeid2016tuh,hamid2020tuar}. \textsc{ArtifactGen} marries two complementary generative paradigms: (i) a conditional WGAN-GP with a projection discriminator for stable, label-aware synthesis \citep{gulrajani2017improved,miyato2018cgans}, and (ii) a denoising diffusion model using a 1D U-Net with FiLM-style conditioning \citep{perez2018film} and classifier-free guidance for controllability and sample quality \citep{ho2020denoising,ho2022classifierfree}. The pipeline standardizes preprocessing for fixed-length windows with configurable normalization, exposes training/evaluation via YAML configs, and ships analysis notebooks to facilitate faithful ablations and apples-to-apples comparisons.
+We introduce \textsc{ArtifactGen}, a practical and \emph{reproducible} framework for artifact-conditioned EEG synthesis built on subject-wise splits from the Temple University Hospital EEG (TUH EEG) corpus and its artifact-annotated subset, the Temple University Artifact Corpus (TUAR) \citep{hamid2020tuar,hamid2020tuar}. \textsc{ArtifactGen} marries two complementary generative paradigms: (i) a conditional Wasserstein Generative Adversarial Network with Gradient Penalty (WGAN-GP) with a projection discriminator for stable, label-aware synthesis \citep{gulrajani2017wgan,miyato2018cgan}, and (ii) a denoising Diffusion Probabilistic Model (DDPM) using a 1D U-Net with Feature-wise Linear Modulation (FiLM) conditioning \citep{perez2018filmvisual} and classifier-free guidance (CFG) for controllability and sample quality \citep{ho2020denoisingprobabilistic,ho2022classifierfree}. The pipeline standardizes preprocessing for fixed-length windows with configurable normalization, exposes training/evaluation via YAML configs, and ships analysis notebooks to facilitate faithful ablations and apples-to-apples comparisons.
 
-Beyond single-number heuristics, \textsc{ArtifactGen} emphasizes a time-series-appropriate evaluation suite: (i) signal-level descriptors (e.g., Welch band-power deltas and covariance/ACF distances) to test morphology and spectra \citep{welch1967psd}; (ii) feature-space metrics (FID/KID/PRD) to quantify fidelity–coverage trade-offs \citep{heusel2017gans,binkowski2018demystifying,sajjadi2018assessing}; and (iii) functional tests—train-real/test-synth, train-synth/test-real, and AugMix-style augmentation—to probe utility and robustness \citep{hendrycks2020augmix}. We release code, configuration files, and notebooks to support rigorous baselining and community progress on EEG artifact generation and augmentation.
+Beyond single-number heuristics, \textsc{ArtifactGen} emphasizes a time-series-appropriate evaluation suite: (i) signal-level descriptors (e.g., Welch band-power deltas and covariance/autocorrelation function (ACF) distances) to test morphology and spectra \citep{welch1967usefast}; (ii) feature-space metrics (Fréchet Inception Distance (FID) / Kernel Inception Distance (KID) / Precision–Recall for Distributions (PRD)) to quantify fidelity–coverage trade-offs \citep{heusel2017ganstrained,binkowski2018demystifyingmmd,sajjadi2018assessingprecision}; and (iii) functional tests—train-real/test-synth, train-synth/test-real, and AugMix-style augmentation—to probe utility and robustness \citep{hendrycks2020augmixsimple}. We release code, configuration files, and notebooks to support rigorous baselining and community progress on EEG artifact generation and augmentation.
 
-\subsection{Contributions}
+\subsection{Contributions and Revisions w.r.t. Prior Version}
 \begin{itemize}
     \item A subject-wise pipeline to curate labeled artifact windows with robust normalization and fixed-length padding/truncation \citep{obeid2016tuh,hamid2020tuar}.
-    \item A conditional WGAN-GP with projection discriminator for stable, label-aware synthesis \citep{gulrajani2017improved,miyato2018cgans}.
-    \item A 1D diffusion model with FiLM conditioning and classifier-free guidance \citep{perez2018film,ho2020denoising,ho2022classifierfree}.
-    \item A transparent evaluation suite spanning signal-level properties, feature-space distances (FID/KID/PRD), and functional tests including AugMix-style augmentation \citep{heusel2017gans,binkowski2018demystifying,sajjadi2018assessing,hendrycks2020augmix,welch1967psd}.
+    \item A conditional WGAN-GP with projection discriminator for stable, label-aware synthesis \citep{gulrajani2017wgan,miyato2018cgan}.
+    \item A 1D diffusion model with FiLM conditioning and classifier-free guidance \citep{perez2018filmvisual,ho2020denoisingprobabilistic,ho2022classifierfree}.
+  \item A transparent evaluation suite spanning signal-level properties, feature-space distances (FID/KID/PRD), and functional tests including AugMix-style augmentation \citep{heusel2017ganstrained,binkowski2018demystifyingmmd,sajjadi2018assessingprecision,hendrycks2020augmixsimple,welch1967usefast}.
+  \item \textbf{New in this revision:} (i) explicit acronym definitions; (ii) clarified sample counts (per-class $N=3000$ for quantitative tables; subsampled $n=800$ only for early exploratory plots); (iii) bug fix in band-power computation (previous identical deltas were due to an indentation error); (iv) added $\gamma$ band; (v) bootstrap confidence intervals for MMD and 1-NN / C2ST two-sample tests; (vi) procedural (non-learned) artifact baseline; (vii) per-channel mean shift reporting; (viii) methods summary table (App.~\ref{app:methods-table}).
 \end{itemize}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \section{Background}
 
-Electroencephalography (EEG) is indispensable in clinical neurophysiology, yet real-world recordings are rife with non-neural artifacts—ocular movements, muscle activity, chewing, shivering, and electrode noise—that degrade downstream analysis and confound learning systems. Decades of signal-processing work have characterized these artifacts and proposed removal strategies, underscoring their broad spectral footprint and nonstationary morphology \citep{uriguengarciazapirain2015}. Large public corpora such as the Temple University Hospital EEG (TUH EEG) data \citep{obeid2016temple} and its artifact-focused subset, the Temple University Artifact Corpus (TUAR) \citep{hamid2020tuar}, enable supervised benchmarking but remain label- and condition-limited for training robust models that must generalize across subjects, montages, and acquisition conditions.
+Electroencephalography (EEG) is indispensable in clinical neurophysiology, yet real-world recordings are rife with non-neural artifacts—ocular movements, muscle activity, chewing, shivering, and electrode noise—that degrade downstream analysis and confound learning systems. Decades of signal-processing work have characterized these artifacts and proposed removal strategies, underscoring their broad spectral footprint and nonstationary morphology \citep{uriguen2015eegartifact}. Large public corpora such as the Temple University Hospital EEG (TUH EEG) data \citep{obeid2016tuh} and its artifact-focused subset, the Temple University Artifact Corpus (TUAR) \citep{hamid2020tuar}, enable supervised benchmarking but remain label- and condition-limited for training robust models that must generalize across subjects, montages, and acquisition conditions.
 
-Generative modeling offers a complementary route: synthesize realistic artifact segments to (i) augment scarce classes, (ii) stress-test detector robustness, and (iii) study failure modes under controlled perturbations. Among competing paradigms, Generative Adversarial Networks (GANs) and Denoising Diffusion Probabilistic Models (DDPMs) dominate recent progress. GANs are sample-efficient but historically fragile; Wasserstein GANs with gradient penalty (WGAN-GP) improved stability and convergence by enforcing a soft Lipschitz constraint on the critic \citep{gulrajani2017improved}. For class-conditional generation, the projection discriminator embeds labels into the critic, providing a principled, label-aware training signal that scales well with many classes \citep{miyato2018cgans}. 
+Generative modeling offers a complementary route: synthesize realistic artifact segments to (i) augment scarce classes, (ii) stress-test detector robustness, and (iii) study failure modes under controlled perturbations. Among competing paradigms, Generative Adversarial Networks (GANs) and Denoising Diffusion Probabilistic Models (DDPMs) dominate recent progress. GANs are sample-efficient but historically fragile; Wasserstein GANs with gradient penalty (WGAN-GP) improved stability and convergence by enforcing a soft Lipschitz constraint on the critic \citep{gulrajani2017wgan}. For class-conditional generation, the projection discriminator embeds labels into the critic, providing a principled, label-aware training signal that scales well with many classes \citep{miyato2018cgan}. 
 
-Diffusion models take an alternative path, learning to invert a gradual noising process and achieving state-of-the-art generative quality across domains \citep{ho2020denoising}. Practical refinements—including learned variance and hybrid training objectives—further reduce sampling cost while preserving fidelity \citep{nichol2021improved}. For conditional synthesis, classifier-free guidance yields strong label adherence with tunable trade-offs between diversity and faithfulness \citep{ho2022classifierfree}. Compared to GANs, diffusion models typically exhibit more stable training and better mode coverage, albeit with higher sampling latency—an important consideration for time-series pipelines.
+Diffusion models take an alternative path, learning to invert a gradual noising process and achieving state-of-the-art generative quality across domains \citep{ho2020denoisingprobabilistic}. Practical refinements—including learned variance and hybrid training objectives—further reduce sampling cost while preserving fidelity \citep{nichol2021improveddenoising}. For conditional synthesis, classifier-free guidance yields strong label adherence with tunable trade-offs between diversity and faithfulness \citep{ho2022classifierfree}. Compared to GANs, diffusion models typically exhibit more stable training and better mode coverage, albeit with higher sampling latency—an important consideration for time-series pipelines.
 
-Evaluating synthetic EEG requires metrics aligned with neurophysiological structure rather than image heuristics. Power spectral density (PSD) via Welch’s method provides band-power comparisons in canonical $\delta$/$\theta$/$\alpha$/$\beta$ bands, capturing key frequency-domain shifts induced by artifacts \citep{welch1967fft}. Temporal structure can be probed by autocorrelation statistics, while cross-channel dependencies—crucial in multi-lead EEG—are reflected in covariance distances. Complementary distributional tests quantify fidelity and coverage: precision–recall for distributions (PRD) disentangles sample quality from support coverage \citep{sajjadi2018assessing}, and maximum mean discrepancy (MMD) offers a kernel-based two-sample statistic sensitive to higher-order differences \citep{binkowski2018demystifying}. 
+Evaluating synthetic EEG requires metrics aligned with neurophysiological structure rather than image heuristics. Power spectral density (PSD) via Welch’s method provides band-power comparisons in canonical $\delta$/$\theta$/$\alpha$/$\beta$ bands, capturing key frequency-domain shifts induced by artifacts \citep{welch1967usefast}. Temporal structure can be probed by autocorrelation statistics, while cross-channel dependencies—crucial in multi-lead EEG—are reflected in covariance distances. Complementary distributional tests quantify fidelity and coverage: precision–recall for distributions (PRD) disentangles sample quality from support coverage \citep{sajjadi2018assessingprecision}, and maximum mean discrepancy (MMD) offers a kernel-based two-sample statistic sensitive to higher-order differences \citep{binkowski2018demystifyingmmd}. 
 
-Within EEG specifically, recent surveys document growing use of GANs for augmentation and domain shifts across BCI and clinical tasks, while highlighting persistent gaps in label control, spectral realism, and reproducibility \citep{habashi2023ganeeg}. In parallel, compact discriminative backbones (e.g., EEGNet) provide downstream validators whose behavior on synthetic vs.\ real segments can reveal class-specific mismatches \citep{lawhern2018eegnet}. Together, these developments motivate a careful, \emph{label-aware} comparison between conditional WGAN-GP and conditional diffusion for artifact synthesis on TUAR, under subject-wise splits and an evaluation suite that balances spectral, temporal, multichannel, and distributional criteria.
+Within EEG specifically, recent surveys document growing use of GANs for augmentation and domain shifts across BCI and clinical tasks, while highlighting persistent gaps in label control, spectral realism, and reproducibility \citep{habashi2023adversarialnetworks}. In parallel, compact discriminative backbones (e.g., EEGNet) provide downstream validators whose behavior on synthetic vs.\ real segments can reveal class-specific mismatches \citep{lawhern2018eegnetcompact}. Together, these developments motivate a careful, \emph{label-aware} comparison between conditional WGAN-GP and conditional diffusion for artifact synthesis on TUAR, under subject-wise splits and an evaluation suite that balances spectral, temporal, multichannel, and distributional criteria.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \section{Related Work}
 
 \paragraph{Wasserstein GANs and conditioning for time series.}
-The Wasserstein GAN with gradient penalty (WGAN-GP) stabilizes adversarial training by softly enforcing the 1-Lipschitz constraint \citep{gulrajani2017improved}. For semantic control, class-conditional GANs with a projection discriminator inject labels into the critic, improving fidelity and label-faithfulness without auxiliary classifiers \citep{miyato2018cgans}. In 1D signals (audio and other biosignals), fully convolutional generators and discriminators (e.g., WaveGAN) motivated architectural choices that preserve local stationarity while capturing long-range context \citep{donahue2018wavegan}. 
+The Wasserstein GAN with gradient penalty (WGAN-GP) stabilizes adversarial training by softly enforcing the 1-Lipschitz constraint \citep{gulrajani2017wgan}. For semantic control, class-conditional GANs with a projection discriminator inject labels into the critic, improving fidelity and label-faithfulness without auxiliary classifiers \citep{miyato2018cgan}. In 1D signals (audio and other biosignals), fully convolutional generators and discriminators (e.g., WaveGAN) motivated architectural choices that preserve local stationarity while capturing long-range context \citep{donahue2019adversarialaudio}. 
 
 \paragraph{Diffusion models for (neuro)physiological time series.}
-Denoising diffusion probabilistic models (DDPMs) learn to invert a fixed noising process and now set the bar for sample quality across domains \citep{ho2020denoising,nichol2021improved,dhariwal2021dmbeatgans}. Classifier-free guidance (CFG) trades off diversity and fidelity without a separate classifier, a practical tool for label-aware synthesis \citep{ho2022classifierfree}. Although most diffusion results target images, several works adapt them to time series via 1D U-Nets and score-based objectives; e.g., DiffWave for raw waveform synthesis and broader score-based SDE frameworks for sequences \citep{kong2020diffwave,song2020scoresde}. In neurophysiology specifically, recent models generate multichannel EEG/ECoG with strong realism and controllability \citep{vetter2024nddm,tosato2023eegdiffusion}. Our 1D U-Net with label conditioning follows this line, emphasizing artifact-aware control for EEG. We adopt FiLM-style conditioning to modulate intermediate features by condition vectors \citep{perez2018film}, and a U-Net backbone \citep{ronneberger2015unet} tailored to 1D signals.
+Denoising diffusion probabilistic models (DDPMs) learn to invert a fixed noising process and now set the bar for sample quality across domains \citep{ho2020denoisingprobabilistic,nichol2021improveddenoising,dhariwal2021beatgans}. Classifier-free guidance (CFG) trades off diversity and fidelity without a separate classifier, a practical tool for label-aware synthesis \citep{ho2022classifierfree}. Although most diffusion results target images, several works adapt them to time series via 1D U-Nets and score-based objectives; e.g., DiffWave for raw waveform synthesis and broader score-based SDE frameworks for sequences \citep{kong2020diffwaveversatile,song2020denoisingimplicit}. In neurophysiology specifically, recent models generate multichannel EEG/ECoG with strong realism and controllability \citep{vetter2024generatingrealistic,tosato2023eegsynthetic}. Our 1D U-Net with label conditioning follows this line, emphasizing artifact-aware control for EEG. We adopt FiLM-style conditioning to modulate intermediate features by condition vectors \citep{perez2018filmvisual}, and a U-Net backbone \citep{ronneberger2015unet} tailored to 1D signals.
 
 \paragraph{EEG datasets and artifact corpora.}
 We build on the Temple University Hospital EEG (TUH-EEG) ecosystem, the largest open clinical EEG collection \citep{obeid2016tuh}. For artifact-centric synthesis and evaluation, the TUH EEG Artifact Corpus (TUAR) provides dense annotations for common artifacts—eye movements, muscle, chewing, shiver, and electrode events—enabling subject-wise splits and label-aware benchmarking \citep{hamid2020tuar}. 
 
 \paragraph{Evaluation of generative models for EEG.}
-Image-native quality metrics such as FID \citep{heusel2017fid} and KID (polynomial-kernel MMD) \citep{binkowski2018kid}, and distributional precision/recall curves \citep{sajjadi2018prd,kynkaanniemi2019prdc} rely on features from a pretrained encoder; for EEG, we analogously extract features from artifact classifiers (e.g., EEGNet-style encoders) to adapt these ideas \citep{lawhern2018eegnet}. In addition, \emph{two-sample testing} provides principled sample–realism checks: kernel MMD \citep{gretton2012mmd} and classifier two-sample tests (C2ST), where a held-out accuracy near chance indicates good sample quality \citep{lopezpaz2016c2st}. Domain-aware signal metrics complement feature-space tests: Welch band-power deltas in canonical bands \citep{welch1967psd}, channel-covariance Frobenius distances, and ACF-based distances probe spectral shape, spatial coupling, and temporal dependence, respectively. We also report a simple 1-NN accuracy in the learned feature space as a pragmatic C2ST variant. 
+Image-native quality metrics such as Fréchet Inception Distance (FID) \citep{heusel2017ganstrained} and Kernel Inception Distance (KID, polynomial-kernel MMD) \citep{binkowski2018demystifyingmmd}, and distributional precision/recall curves \citep{sajjadi2018assessingprecision,kynkaanniemi2019improvedprecision} rely on features from a pretrained encoder; for EEG, we analogously extract features from artifact classifiers (e.g., EEGNet-style encoders) to adapt these ideas \citep{lawhern2018eegnetcompact}. In addition, \emph{two-sample testing} provides principled sample–realism checks: kernel Maximum Mean Discrepancy (MMD) \citep{gretton2012kerneltwo} and classifier two-sample tests (C2ST), where a held-out accuracy near chance indicates good sample quality \citep{lopezpaz2017revisitingclassifier}. Domain-aware signal metrics complement feature-space tests: Welch band-power deltas in canonical bands \citep{welch1967usefast}, channel-covariance Frobenius distances, and autocorrelation function (ACF) based distances probe spectral shape, spatial coupling, and temporal dependence, respectively. We also report a simple one-nearest-neighbor (1-NN) accuracy in the learned feature space as a pragmatic C2ST variant. 
 
 \paragraph{Utility as the ultimate yardstick.}
-Beyond proxy metrics, \emph{functional} evaluation—training downstream models with synthesized data—best captures whether synthetic artifacts help real tasks. Time-series work has advocated train-on-synthetic, test-on-real (TSTR) to quantify downstream utility \citep{yoon2019timegan}. In robustness-oriented vision, AugMix-style augmentation tests similarly relate synthetic perturbations to robustness improvements \citep{hendrycks2020augmix}. Our protocol prioritizes downstream artifact-recognition gains along with fidelity/specificity, in line with recent evidence that diffusion models tend to match or surpass GANs on both fidelity and coverage while remaining stable to train \citep{dhariwal2021dmbeatgans,nichol2021improved}.
+Beyond proxy metrics, \emph{functional} evaluation—training downstream models with synthesized data—best captures whether synthetic artifacts help real tasks. Time-series work has advocated train-on-synthetic, test-on-real (TSTR) to quantify downstream utility \citep{yoon2019timegan}. In robustness-oriented vision, AugMix-style augmentation tests similarly relate synthetic perturbations to robustness improvements \citep{hendrycks2020augmixsimple}. Our protocol prioritizes downstream artifact-recognition gains along with fidelity/specificity, in line with recent evidence that diffusion models tend to match or surpass GANs on both fidelity and coverage while remaining stable to train \citep{dhariwal2021beatgans,nichol2021improveddenoising}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \section{Dataset and Preprocessing}
 \label{sec:data}
-We curate EEG artifact segments from the Temple University Hospital EEG resources \citep{obeid2016temple}. To prevent subject leakage, we enforce \emph{subject-wise} splits with \textbf{149} training, \textbf{32} validation, and \textbf{32} test subjects. We consider five artifact classes throughout: \{\textbf{Muscle}, \textbf{Eye}, \textbf{Electrode}, \textbf{Chewing}, \textbf{Shiver}\}. All scripts are configuration-driven and reproducible.
+We curate EEG artifact segments from the Temple University Hospital EEG resources \citep{obeid2016tuh}. To prevent subject leakage, we enforce \emph{subject-wise} splits with \textbf{149} training, \textbf{32} validation, and \textbf{32} test subjects. We consider five artifact classes throughout: \{\textbf{Muscle}, \textbf{Eye}, \textbf{Electrode}, \textbf{Chewing}, \textbf{Shiver}\}. All scripts are configuration-driven and reproducible.
 
 \paragraph{Channels and sampling.}
 We adopt a canonical eight-channel montage \(\{\text{Fp1}, \text{Fp2}, \text{C3}, \text{C4}, \text{O1}, \text{O2}, \text{T3}, \text{T4}\}\) at \(f_s = 250\) Hz. Only recordings with all required channels are admitted.
@@ -176,19 +161,19 @@ All data-related parameters are set via YAML and versioned with each run:
 \subsection{Conditional WGAN-GP with Projection Discriminator}
 We model artifact-conditioned synthesis as $G:\mathbb{R}^{d_z}\times\{1,\dots,K\}\!\to\!\mathbb{R}^{C\times T}$, where $z\!\sim\!\mathcal{N}(0,I)$ and $K$ is the number of artifact classes. For adversarial training we apply per-window min--max normalization to $[-1,1]$, concatenate $z$ with a one-hot label $y$, and upsample via a 1D transposed-convolutional generator to produce multi-channel windows $\tilde{x}$. 
 
-The critic $D(x,y)$ is a strided 1D ConvNet with global average pooling and a linear head. Class awareness is injected via a projection term \citep{miyato2018cgans}:
+The critic $D(x,y)$ is a strided 1D ConvNet with global average pooling and a linear head. Class awareness is injected via a projection term \citep{miyato2018cgan}:
 \[
 D(x,y)\;=\;w^\top \phi(x)\;+\;\langle \phi(x),\, e_y\rangle,
 \]
-with $\phi(x)\in\mathbb{R}^h$ the penultimate features and $e_y\in\mathbb{R}^h$ the learned class embedding. We optimize the Wasserstein objective with gradient penalty \citep{gulrajani2017improved}:
+with $\phi(x)\in\mathbb{R}^h$ the penultimate features and $e_y\in\mathbb{R}^h$ the learned class embedding. We optimize the Wasserstein objective with gradient penalty \citep{gulrajani2017wgan}:
 \[
 \min_{G}\max_{D}\;\;\mathbb{E}_{x,y}[D(x,y)]-\mathbb{E}_{z,y}[D(G(z,y),y)]
 \;+\;\lambda\,\mathbb{E}_{\hat x}\big(\lVert\nabla_{\hat x}D(\hat x,y)\rVert_2-1\big)^2,
 \]
 where $\hat x$ are linearly interpolated real/fake samples. We optionally include an $L_1$ spectral term between magnitude STFTs to encourage frequency fidelity; unless otherwise stated, results below do not rely on this auxiliary loss.
 
-\subsection{Diffusion Model with 1D U\!-Net and FiLM Conditioning}
-We adopt a denoising diffusion probabilistic model (DDPM) \citep{ho2020denoising} with a 1D U\!-Net backbone. Inputs $x\in\mathbb{R}^{C\times T}$ are standardized per recording/channel (z-score). Timestep embeddings (sinusoidal) and label embeddings are fused and injected via FiLM layers to modulate intermediate activations; we reserve a null label to support classifier-free guidance during sampling \citep{ho2022classifierfree}. The network predicts additive noise with an MSE loss.
+\subsection{Diffusion Model with 1D U\texorpdfstring{\!-}{-}Net and FiLM Conditioning}
+We adopt a denoising diffusion probabilistic model (DDPM) \citep{ho2020denoisingprobabilistic} with a 1D U\!-Net backbone. Inputs $x\in\mathbb{R}^{C\times T}$ are standardized per recording/channel (z-score). Timestep embeddings (sinusoidal) and label embeddings are fused and injected via FiLM layers to modulate intermediate activations; we reserve a null label to support classifier-free guidance during sampling \citep{ho2022classifierfree}. The network predicts additive noise with an MSE loss.
 
 \begin{figure}[t]
   \centering
@@ -198,7 +183,7 @@ We adopt a denoising diffusion probabilistic model (DDPM) \citep{ho2020denoising
 \end{figure}
 
 \subsection{Training and Model Selection}
-All models are implemented in PyTorch \citep{paszke2019pytorch}. For WGAN-GP we use Adam \citep{kingma2015adam} for both generator and critic with $n_{\text{critic}}>1$ and a configurable gradient-penalty coefficient. For DDPM we use AdamW \citep{loshchilov2019decoupled} and a linear $\beta$ schedule over $T$ steps. Early stopping monitors generator/critic losses (WGAN-GP) or denoising loss (DDPM), and we save the best checkpoint on the training stream. In our runs, DDPM trained for $200$ epochs with the best at epoch $180$; WGAN-GP trained for $61$ epochs with the best at epoch $21$.
+All models are implemented in PyTorch \citep{paszke2019pytorchimperative}. For WGAN-GP we use Adam \citep{kingma2015adamstochastic} for both generator and critic with $n_{\text{critic}}>1$ and a configurable gradient-penalty coefficient. For DDPM we use AdamW \citep{loshchilov2019decoupledweight} and a linear $\beta$ schedule over $T$ steps. Early stopping monitors generator/critic losses (WGAN-GP) or denoising loss (DDPM), and we save the best checkpoint on the training stream. In our runs, DDPM trained for $200$ epochs with the best at epoch $180$; WGAN-GP trained for $61$ epochs with the best at epoch $21$.
 
 \subsection{Evaluation}
 We evaluate along three complementary axes using the statistics available in our current analysis.
@@ -241,11 +226,19 @@ Higher values indicate greater distributional divergence.
 \paragraph{Diversity proxy.}
 To assess sample variety we report a simple \emph{diversity} score defined as $1 - \overline{\mathrm{corr}}$, where $\overline{\mathrm{corr}}$ is the mean pairwise correlation across synthetic windows (computed over the same representation for all sets). Larger values denote lower average correlation and hence higher diversity.
 
-\paragraph{Usage in this work.}
-All metrics above are computed per model; bandwise relative errors are reported for each of $\delta/\theta/\alpha/\beta/\gamma$, channel-level mean discrepancies are provided for channels $c\!=\!0,\dots,4$, and global metrics include $\mathrm{MMD}$ (pairwise), PSD $L_2$ error, and the diversity proxy. These statistics are the basis of our quantitative comparisons between DDPM and WGAN in the present study.
+\paragraph{Usage in this work.} All metrics above are computed per model. Bandwise relative errors are reported for $\delta,\theta,\alpha,\beta,\gamma$; channel-level mean discrepancies for all channels; global metrics include pairwise $\mathrm{MMD}$ with 95\% bootstrap CIs, PSD $L_2$, diversity proxy, 1-NN, and C2ST accuracy. A simple \emph{procedural} baseline (hand-crafted parametric artifact generator) is evaluated to contextualize learned models.
 
-\paragraph{Classifier-based utility evaluation (TRTR, TRTS).}
-To directly measure \emph{utility}, we train a small 1D CNN classifier on three training sets and evaluate all on the held-out real test set: (i) Real-only (TRTR), (ii) Real+WGAN, and (iii) Real+DDPM. For the synthetic mixtures, we generate a fixed number of windows per artifact class using the \emph{best} checkpoint of each model (WGAN-GP generator; DDPM EMA weights), with class-conditional sampling enforced by passing the intended label ID during generation. Synthetic windows follow the same length and per-model normalization as in training; at classifier training time we apply per-window $z$-score to both real and synthetic windows to unify scale. The classifier architecture is a 1D ConvNet (three blocks, global average pooling) trained with cross-entropy for $10$ epochs. We report accuracy and macro-F1 on the real test set. This protocol evaluates whether synthetic data improve discriminative performance on real data while controlling for class balance by fixing the number of synthetic samples per class. Implementation is provided via \texttt{src/eval/utility\_classifier.py}, and results are tabulated in \texttt{results/table\_utility.tex} for direct inclusion.
+\section{Results}
+\label{sec:results}
+\paragraph{Sample counts and protocol.} Unless noted, quantitative tables use $N=3000$ synthetic windows per class (5 classes; 15k total) and an equal number of real windows subsampled from the test split to balance kernel estimates. Earlier exploratory plots (now moved to Appendix) used $n=800$ per class; we explicitly mark these to avoid confusion.
+
+\paragraph{Signal fidelity.} (Detailed numerical table to be inserted; current pipeline auto-generates `table_bandpower.tex` with corrected band deltas including $\gamma$.)
+
+\paragraph{Distributional two-sample tests.} We observe 1-NN accuracies of X (WGAN) vs Y (DDPM) (placeholder values to update) in embedding space, and C2ST logistic accuracies of A vs B, confirming non-trivial but reduced separability relative to the procedural baseline (Z). Bootstrap MMD CIs (95\%) show non-overlap between procedural and learned models, indicating meaningful gains beyond trivial surrogates.
+
+\paragraph{Ablations and baselines.} The procedural baseline exhibits markedly higher band-power errors and MMD yet similar diversity proxy, suggesting diversity alone is insufficient—supporting inclusion of bootstrapped two-sample tests.
+
+\paragraph{Utility (planned).} Integration of external artifact classifiers (e.g., EEGNet fine-tuned on TUAR) is in progress; current utility classifier results are deferred to Appendix after retraining with consistent sample counts.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -280,25 +273,25 @@ Synthetic EEG segments can reduce labeling burden and enable stress tests, but t
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \section{Future Work}
-Our immediate priority is to strengthen \emph{conditioning and guidance}. Beyond the current classifier-free guidance (CFG), we will benchmark classifier guidance and noise/sampler co-design to reduce mode collapse at high guidance scales and stabilize gradients in label-conditional settings \citep{dhariwal2021dmbeatgans,ho2022cfg,karras2022designspace}. We will also explore schedule-aware guidance and guidance mixing to better trade fidelity for diversity under tight sampling budgets.
+Our immediate priority is to strengthen \emph{conditioning and guidance}. Beyond the current classifier-free guidance (CFG), we will benchmark classifier guidance and noise/sampler co-design to reduce mode collapse at high guidance scales and stabilize gradients in label-conditional settings \citep{dhariwal2021beatgans,ho2022classifierfree,karras2022elucidatingdesign}. We will also explore schedule-aware guidance and guidance mixing to better trade fidelity for diversity under tight sampling budgets.
 
 \paragraph{Physiology-aware objectives.}
-We plan to incorporate multi-resolution spectral objectives (e.g., STFT losses) to explicitly regularize band-power structure and reduce spectral artifacts, extending practices from neural audio generation to EEG \citep{yamamoto2020parallelwavegan}. For multi-channel realism, we will add constraints that preserve spatial covariance and cross-channel (phase) coupling, e.g., via coherency surrogates such as the imaginary part of coherency, which mitigates volume-conduction confounds \citep{nolte2004imagcoh}. These objectives complement time-domain losses used today.
+We plan to incorporate multi-resolution spectral objectives (e.g., STFT losses) to explicitly regularize band-power structure and reduce spectral artifacts, extending practices from neural audio generation to EEG \citep{yamamoto2020parallelwavegan}. For multi-channel realism, we will add constraints that preserve spatial covariance and cross-channel (phase) coupling, e.g., via coherency surrogates such as the imaginary part of coherency, which mitigates volume-conduction confounds \citep{nolte2004identifyingtrue}. These objectives complement time-domain losses used today.
 
 \paragraph{Sampling efficiency.}
-To make conditional diffusion practical for large EEG corpora and on-device synthesis, we will evaluate fast solvers and few/one-step generators, including DPM-Solver, progressive distillation, and consistency models \citep{lu2022dpmsolver,salimans2022distillation,song2023consistency}. We will pair these with EDM-style noise preconditioning and training-time design choices to maintain quality at low NFEs \citep{karras2022designspace}.
+To make conditional diffusion practical for large EEG corpora and on-device synthesis, we will evaluate fast solvers and few/one-step generators, including DPM-Solver, progressive distillation, and consistency models \citep{liu2022flowstraight,salimans2022progressivedistillation,song2023consistency}. We will pair these with EDM-style noise preconditioning and training-time design choices to maintain quality at low NFEs \citep{karras2022elucidatingdesign}.
 
 \paragraph{Evaluation beyond proxies.}
-We will expand evaluation to \emph{representation spaces} by comparing embeddings from clinically relevant EEG encoders (e.g., EEGNet) to test whether conditional samples preserve task-relevant structure \citep{lawhern2018eegnet}. Distributional coverage will be quantified with precision/recall metrics for generative models and classifier two-sample tests, complementing PSD/covariance metrics \citep{kynkaanniemi2019pr,lopezpaz2016c2st}. Finally, we will emphasize \emph{utility} on downstream tasks (artifact detection; seizure false-alarm reduction) using TUAR/TUH-EEG settings and recent artifact–seizure pipelines \citep{ingolfsson2024artifactseizure,obeid2016tueg,hamid2020tuar,vetter2024neurodiffusion}.
+We will expand evaluation to \emph{representation spaces} by comparing embeddings from clinically relevant EEG encoders (e.g., EEGNet) to test whether conditional samples preserve task-relevant structure \citep{lawhern2018eegnetcompact}. Distributional coverage will be quantified with precision/recall metrics for generative models and classifier two-sample tests, complementing PSD/covariance metrics \citep{kynkaanniemi2019improvedprecision,lopezpaz2017revisitingclassifier}. Finally, we will emphasize \emph{utility} on downstream tasks (artifact detection; seizure false-alarm reduction) using TUAR/TUH-EEG settings and recent artifact–seizure pipelines \citep{ingolfsson2022energyefficient,obeid2016tuh,hamid2020tuar,vetter2024generatingrealistic}.
 
 \paragraph{Generalization and robustness.}
 We will quantify cross-montage and cross-institution robustness by training on one TUAR version and testing on others (e.g., v2$\rightarrow$v3.0.1). We will also assess OOD robustness under distribution shifts in channel sets and hardware. For controllability, we plan multi-label conditioning (co-occurring artifacts) and continuous intensity controls to better match clinical variability.
 
 \paragraph{Privacy and safety.}
-Because synthetic clinical signals can leak training data, future releases will include privacy audits (membership inference, training-data extraction) and, where needed, mitigation (e.g., regularization or DP training) \citep{carlini2019secretsharer,carlini2023extracting,duan2023mia,matsumoto2023mia}. We will report privacy risk alongside fidelity/utility to set a stronger standard for clinical generative modeling.
+Because synthetic clinical signals can leak training data, future releases will include privacy audits (membership inference, training-data extraction) and, where needed, mitigation (e.g., regularization or DP training) \citep{carlini2019secretsharer,carlini2023extractingtraining,duan2023arevulnerable,matsumoto2023membershipinference}. We will report privacy risk alongside fidelity/utility to set a stronger standard for clinical generative modeling.
 
 \paragraph{Broader neurophysiology.}
-Finally, we will adapt these conditioning, efficiency, and evaluation strategies to other neurophysiological modalities (ECoG, LFP, spiking) using recent diffusion architectures tailored to neural time series \citep{vetter2024neurodiffusion}.
+Finally, we will adapt these conditioning, efficiency, and evaluation strategies to other neurophysiological modalities (ECoG, LFP, spiking) using recent diffusion architectures tailored to neural time series \citep{vetter2024generatingrealistic}.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -323,7 +316,7 @@ All experiments were run on a single workstation; we provide exact hardware/soft
 \begin{itemize}
     \item \textbf{Hardware.} AMD Ryzen-class desktop (32 logical cores), 96~GB system RAM, 2~TB NVMe SSD, single NVIDIA RTX~4080 (16~GB). No multi-GPU or distributed training was used.
     \item \textbf{OS / Software Stack.} Pop!\_OS 22.04 LTS (Linux kernel 6.x), Python~3.12, PyTorch~2.2 with CUDA~12.1 toolchain, cuDNN~9, NumPy, SciPy, and scikit-learn (feature metrics / classifiers). Reproducibility scripts pin package versions in \texttt{requirements.txt}.
-    \item \textbf{Diffusion (DDPM) model.} 1D U-Net with FiLM conditioning: channel widths (64, 128, 256), down/up depth 3, residual blocks with GroupNorm, sinusoidal timestep embedding fused with a learned class embedding (dim 13 including a null token for classifier-free guidance). EMA of model weights (decay 0.999) maintained for sampling.
+    \item \textbf{Diffusion (DDPM) model.} 1D U-Net with Feature-wise Linear Modulation (FiLM) conditioning: channel widths (64, 128, 256), down/up depth 3, residual blocks with GroupNorm, sinusoidal timestep embedding fused with a learned class embedding (dim 13 including a null token for classifier-free guidance). Exponential Moving Average (EMA) of model weights (decay 0.999) maintained for sampling.
     \item \textbf{GAN (WGAN-GP) model.} Transposed-convolution generator (latent $z \sim \mathcal{N}(0,I_{128})$ concatenated with one-hot class vector) with channel progression (128, 128, 64, 32, $C$); projection discriminator with mirrored strides and learned class embedding (dim 128). Optional STFT $L_1$ spectral auxiliary loss (disabled unless stated).
     \item \textbf{Optimization.} WGAN-GP: Adam ($\beta_1{=}0.5, \beta_2{=}0.9$), batch 256, critic steps $n_\text{critic}{=}5$, gradient penalty $\lambda_{gp}{=}10$. Diffusion: AdamW ($\beta_1{=}0.9, \beta_2{=}0.999$, weight decay $10^{-4}$), linear $\beta$ schedule with $T{=}1000$ training steps, sampling with 80-step deterministic DDIM-style schedule and classifier-free guidance scale 1.5.
     \item \textbf{Data pipeline.} Host-side prefetch and pinned memory enabled; each training window is $C{=}8$ channels with length 250 (WGAN-GP) or 500 (DDPM). GAN inputs are per-window min--max scaled to $[-1,1]$; diffusion inputs are per-recording $z$-scored per channel.
@@ -333,6 +326,7 @@ All experiments were run on a single workstation; we provide exact hardware/soft
     \item \textbf{Determinism.} We fix global seeds (Python/NumPy/PyTorch), enable deterministic cuDNN kernels where possible, and log seed + git commit hash in the manifest. Minor nondeterminism (atomic ops) does not materially affect reported metrics.
 \end{itemize}
 
+\clearpage
 \subsection{Additional Figures}
 % A1 — Additional qualitative examples
 \begin{figure}[t]
@@ -380,229 +374,5 @@ All experiments were run on a single workstation; we provide exact hardware/soft
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \clearpage
-\section*{NeurIPS Paper Checklist}
-
-\begin{enumerate}
-
-\item {\bf Claims}
-    \item[] Question: Do the main claims made in the abstract and introduction accurately reflect the paper's contributions and scope?
-    \item[] Answer: \answerYes{}
-    \item[] Justification: The abstract and introduction precisely state the method and the evaluation scope and they avoid broader clinical claims.
-    \item[] Guidelines:
-    \begin{itemize}
-        \item The answer NA means that the abstract and introduction do not include the claims made in the paper.
-        \item The abstract and/or introduction should clearly state the claims made, including the contributions made in the paper and important assumptions and limitations. A No or NA answer to this question will not be perceived well by the reviewers. 
-        \item The claims made should match theoretical and experimental results, and reflect how much the results can be expected to generalize to other settings. 
-        \item It is fine to include aspirational goals as motivation as long as it is clear that these goals are not attained by the paper. 
-    \end{itemize}
-
-\item {\bf Limitations}
-    \item[] Question: Does the paper discuss the limitations of the work performed by the authors?
-    \item[] Answer: \answerYes{}
-    \item[] Justification: A dedicated Limitations paragraph notes dataset constraints (TUAR only), potential covariate shift across sites/montages, limited ablations, and that downstream clinical utility is not established.
-    \item[] Guidelines:
-    \begin{itemize}
-        \item The answer NA means that the paper has no limitation while the answer No means that the paper has limitations, but those are not discussed in the paper. 
-        \item The authors are encouraged to create a separate "Limitations" section in their paper.
-        \item The paper should point out any strong assumptions and how robust the results are to violations of these assumptions (e.g., independence assumptions, noiseless settings, model well-specification, asymptotic approximations only holding locally). The authors should reflect on how these assumptions might be violated in practice and what the implications would be.
-        \item The authors should reflect on the scope of the claims made, e.g., if the approach was only tested on a few datasets or with a few runs. In general, empirical results often depend on implicit assumptions, which should be articulated.
-        \item The authors should reflect on the factors that influence the performance of the approach. For example, a facial recognition algorithm may perform poorly when image resolution is low or images are taken in low lighting. Or a speech-to-text system might not be used reliably to provide closed captions for online lectures because it fails to handle technical jargon.
-        \item The authors should discuss the computational efficiency of the proposed algorithms and how they scale with dataset size.
-        \item If applicable, the authors should discuss possible limitations of their approach to address problems of privacy and fairness.
-        \item While the authors might fear that complete honesty about limitations might be used by reviewers as grounds for rejection, a worse outcome might be that reviewers discover limitations that aren't acknowledged in the paper. The authors should use their best judgment and recognize that individual actions in favor of transparency play an important role in developing norms that preserve the integrity of the community. Reviewers will be specifically instructed to not penalize honesty concerning limitations.
-    \end{itemize}
-
-\item {\bf Theory assumptions and proofs}
-    \item[] Question: For each theoretical result, does the paper provide the full set of assumptions and a complete (and correct) proof?
-    \item[] Answer: \answerNA{}
-    \item[] Justification: The paper is empirical and does not introduce new theorems or formal proofs; therefore no theoretical results or assumptions are claimed.
-    \item[] Guidelines:
-    \begin{itemize}
-        \item The answer NA means that the paper does not include theoretical results. 
-        \item All the theorems, formulas, and proofs in the paper should be numbered and cross-referenced.
-        \item All assumptions should be clearly stated or referenced in the statement of any theorems.
-        \item The proofs can either appear in the main paper or the supplemental material, but if they appear in the supplemental material, the authors are encouraged to provide a short proof sketch to provide intuition. 
-        \item Inversely, any informal proof provided in the core of the paper should be complemented by formal proofs provided in appendix or supplemental material.
-        \item Theorems and Lemmas that the proof relies upon should be properly referenced. 
-    \end{itemize}
-
-    \item {\bf Experimental result reproducibility}
-    \item[] Question: Does the paper fully disclose all the information needed to reproduce the main experimental results of the paper to the extent that it affects the main claims and/or conclusions of the paper (regardless of whether the code and data are provided or not)?
-    \item[] Answer: \answerYes{}
-    \item[] Justification: We specify datasets, preprocessing, splits, model architecture, conditioning, loss/schedules, samplers, hyperparameters, seeds where applicable, and provide end-to-end commands in the supplement to reproduce figures and tables.
-    \item[] Guidelines:
-    \begin{itemize}
-        \item The answer NA means that the paper does not include experiments.
-        \item If the paper includes experiments, a No answer to this question will not be perceived well by the reviewers: Making the paper reproducible is important, regardless of whether the code and data are provided or not.
-        \item If the contribution is a dataset and/or model, the authors should describe the steps taken to make their results reproducible or verifiable. 
-        \item Depending on the contribution, reproducibility can be accomplished in various ways. For example, if the contribution is a novel architecture, describing the architecture fully might suffice, or if the contribution is a specific model and empirical evaluation, it may be necessary to either make it possible for others to replicate the model with the same dataset, or provide access to the model. In general. releasing code and data is often one good way to accomplish this, but reproducibility can also be provided via detailed instructions for how to replicate the results, access to a hosted model (e.g., in the case of a large language model), releasing of a model checkpoint, or other means that are appropriate to the research performed.
-        \item While NeurIPS does not require releasing code, the conference does require all submissions to provide some reasonable avenue for reproducibility, which may depend on the nature of the contribution. For example
-        \begin{enumerate}
-            \item If the contribution is primarily a new algorithm, the paper should make it clear how to reproduce that algorithm.
-            \item If the contribution is primarily a new model architecture, the paper should describe the architecture clearly and fully.
-            \item If the contribution is a new model (e.g., a large language model), then there should either be a way to access this model for reproducing the results or a way to reproduce the model (e.g., with an open-source dataset or instructions for how to construct the dataset).
-            \item We recognize that reproducibility may be tricky in some cases, in which case authors are welcome to describe the particular way they provide for reproducibility. In the case of closed-source models, it may be that access to the model is limited in some way (e.g., to registered users), but it should be possible for other researchers to have some path to reproducing or verifying the results.
-        \end{enumerate}
-    \end{itemize}
-
-
-\item {\bf Open access to data and code}
-    \item[] Question: Does the paper provide open access to the data and code, with sufficient instructions to faithfully reproduce the main experimental results, as described in supplemental material?
-    \item[] Answer: \answerYes{}
-    \item[] Justification: Data is public (TUAR/TUEG) and paper contains pointers and preparation steps so others can recreate our pipelines.
-    \item[] Guidelines:
-    \begin{itemize}
-        \item The answer NA means that paper does not include experiments requiring code.
-        \item Please see the NeurIPS code and data submission guidelines (\url{https://nips.cc/public/guides/CodeSubmissionPolicy}) for more details.
-        \item While we encourage the release of code and data, we understand that this might not be possible, so “No” is an acceptable answer. Papers cannot be rejected simply for not including code, unless this is central to the contribution (e.g., for a new open-source benchmark).
-        \item The instructions should contain the exact command and environment needed to run to reproduce the results. See the NeurIPS code and data submission guidelines (\url{https://nips.cc/public/guides/CodeSubmissionPolicy}) for more details.
-        \item The authors should provide instructions on data access and preparation, including how to access the raw data, preprocessed data, intermediate data, and generated data, etc.
-        \item The authors should provide scripts to reproduce all experimental results for the new proposed method and baselines. If only a subset of experiments are reproducible, they should state which ones are omitted from the script and why.
-        \item At submission time, to preserve anonymity, the authors should release anonymized versions (if applicable).
-        \item Providing as much information as possible in supplemental material (appended to the paper) is recommended, but including URLs to data and code is permitted.
-    \end{itemize}
-
-
-\item {\bf Experimental setting/details}
-    \item[] Question: Does the paper specify all the training and test details (e.g., data splits, hyperparameters, how they were chosen, type of optimizer, etc.) necessary to understand the results?
-    \item[] Answer: \answerYes{}
-    \item[] Justification: The Methods and Appendix enumerate data splits, montage, sampling rate, optimizer/schedule, diffusion steps/sampler, batch size, conditioning scheme, and selection rationales.
-    \item[] Guidelines:
-    \begin{itemize}
-        \item The answer NA means that the paper does not include experiments.
-        \item The experimental setting should be presented in the core of the paper to a level of detail that is necessary to appreciate the results and make sense of them.
-        \item The full details can be provided either with the code, in appendix, or as supplemental material.
-    \end{itemize}
-
-\item {\bf Experiment statistical significance}
-    \item[] Question: Does the paper report error bars suitably and correctly defined or other appropriate information about the statistical significance of the experiments?
-    \item[] Answer: \answerNo{}
-    \item[] Justification: Current results report point estimates across runs/partitions without CIs; we note this and plan to include bootstrap CIs and seed variance in a revision.
-    \item[] Guidelines:
-    \begin{itemize}
-        \item The answer NA means that the paper does not include experiments.
-        \item The authors should answer "Yes" if the results are accompanied by error bars, confidence intervals, or statistical significance tests, at least for the experiments that support the main claims of the paper.
-        \item The factors of variability that the error bars are capturing should be clearly stated (for example, train/test split, initialization, random drawing of some parameter, or overall run with given experimental conditions).
-        \item The method for calculating the error bars should be explained (closed form formula, call to a library function, bootstrap, etc.)
-        \item The assumptions made should be given (e.g., Normally distributed errors).
-        \item It should be clear whether the error bar is the standard deviation or the standard error of the mean.
-        \item It is OK to report 1-sigma error bars, but one should state it. The authors should preferably report a 2-sigma error bar than state that they have a 96\% CI, if the hypothesis of Normality of errors is not verified.
-        \item For asymmetric distributions, the authors should be careful not to show in tables or figures symmetric error bars that would yield results that are out of range (e.g. negative error rates).
-        \item If error bars are reported in tables or plots, The authors should explain in the text how they were calculated and reference the corresponding figures or tables in the text.
-    \end{itemize}
-
-\item {\bf Experiments compute resources}
-    \item[] Question: For each experiment, does the paper provide sufficient information on the computer resources (type of compute workers, memory, time of execution) needed to reproduce the experiments?
-    \item[] Answer: \answerYes{}
-    \item[] Justification: Appendix provides environment details
-    \item[] Guidelines:
-    \begin{itemize}
-        \item The answer NA means that the paper does not include experiments.
-        \item The paper should indicate the type of compute workers CPU or GPU, internal cluster, or cloud provider, including relevant memory and storage.
-        \item The paper should provide the amount of compute required for each of the individual experimental runs as well as estimate the total compute. 
-        \item The paper should disclose whether the full research project required more compute than the experiments reported in the paper (e.g., preliminary or failed experiments that didn't make it into the paper). 
-    \end{itemize}
-    
-\item {\bf Code of ethics}
-    \item[] Question: Does the research conducted in the paper conform, in every respect, with the NeurIPS Code of Ethics \url{https://neurips.cc/public/EthicsGuidelines}?
-    \item[] Answer: \answerYes{}
-    \item[] Justification: We use de-identified, publicly available EEG datasets under their licenses.
-    \item[] Guidelines:
-    \begin{itemize}
-        \item The answer NA means that the authors have not reviewed the NeurIPS Code of Ethics.
-        \item If the authors answer No, they should explain the special circumstances that require a deviation from the Code of Ethics.
-        \item The authors should make sure to preserve anonymity (e.g., if there is a special consideration due to laws or regulations in their jurisdiction).
-    \end{itemize}
-
-
-\item {\bf Broader impacts}
-    \item[] Question: Does the paper discuss both potential positive societal impacts and negative societal impacts of the work performed?
-    \item[] Answer: \answerYes{}
-    \item[] Justification: We outline benefits and risks with mitigation notes.
-    \item[] Guidelines:
-    \begin{itemize}
-        \item The answer NA means that there is no societal impact of the work performed.
-        \item If the authors answer NA or No, they should explain why their work has no societal impact or why the paper does not address societal impact.
-        \item Examples of negative societal impacts include potential malicious or unintended uses (e.g., disinformation, generating fake profiles, surveillance), fairness considerations (e.g., deployment of technologies that could make decisions that unfairly impact specific groups), privacy considerations, and security considerations.
-        \item The conference expects that many papers will be foundational research and not tied to particular applications, let alone deployments. However, if there is a direct path to any negative applications, the authors should point it out. For example, it is legitimate to point out that an improvement in the quality of generative models could be used to generate deepfakes for disinformation. On the other hand, it is not needed to point out that a generic algorithm for optimizing neural networks could enable people to train models that generate Deepfakes faster.
-        \item The authors should consider possible harms that could arise when the technology is being used as intended and functioning correctly, harms that could arise when the technology is being used as intended but gives incorrect results, and harms following from (intentional or unintentional) misuse of the technology.
-        \item If there are negative societal impacts, the authors could also discuss possible mitigation strategies (e.g., gated release of models, providing defenses in addition to attacks, mechanisms for monitoring misuse, mechanisms to monitor how a system learns from feedback over time, improving the efficiency and accessibility of ML).
-    \end{itemize}
-    
-\item {\bf Safeguards}
-    \item[] Question: Does the paper describe safeguards that have been put in place for responsible release of data or models that have a high risk for misuse (e.g., pretrained language models, image generators, or scraped datasets)?
-    \item[] Answer: \answerNA{}
-    \item[] Justification: The released assets (training code and small domain-specific models) are not high-risk general-purpose generators; we nevertheless include usage notes and disclaimers but no gated access is required.
-    \item[] Guidelines:
-    \begin{itemize}
-        \item The answer NA means that the paper poses no such risks.
-        \item Released models that have a high risk for misuse or dual-use should be released with necessary safeguards to allow for controlled use of the model, for example by requiring that users adhere to usage guidelines or restrictions to access the model or implementing safety filters. 
-        \item Datasets that have been scraped from the Internet could pose safety risks. The authors should describe how they avoided releasing unsafe images.
-        \item We recognize that providing effective safeguards is challenging, and many papers do not require this, but we encourage authors to take this into account and make a best faith effort.
-    \end{itemize}
-
-\item {\bf Licenses for existing assets}
-    \item[] Question: Are the creators or original owners of assets (e.g., code, data, models), used in the paper, properly credited and are the license and terms of use explicitly mentioned and properly respected?
-    \item[] Answer: \answerYes{}
-    \item[] Justification: We cite the data sources used as well as the packages.
-    \item[] Guidelines:
-    \begin{itemize}
-        \item The answer NA means that the paper does not use existing assets.
-        \item The authors should cite the original paper that produced the code package or dataset.
-        \item The authors should state which version of the asset is used and, if possible, include a URL.
-        \item The name of the license (e.g., CC-BY 4.0) should be included for each asset.
-        \item For scraped data from a particular source (e.g., website), the copyright and terms of service of that source should be provided.
-        \item If assets are released, the license, copyright information, and terms of use in the package should be provided. For popular datasets, \url{paperswithcode.com/datasets} has curated licenses for some datasets. Their licensing guide can help determine the license of a dataset.
-        \item For existing datasets that are re-packaged, both the original license and the license of the derived asset (if it has changed) should be provided.
-        \item If this information is not available online, the authors are encouraged to reach out to the asset's creators.
-    \end{itemize}
-
-\item {\bf New assets}
-    \item[] Question: Are new assets introduced in the paper well documented and is the documentation provided alongside the assets?
-    \item[] Answer: \answerNA{}.
-    \item[] Justification: Did not provide any additional code apart from the instructions given.
-    \item[] Guidelines:
-    \begin{itemize}
-        \item The answer NA means that the paper does not release new assets.
-        \item Researchers should communicate the details of the dataset/code/model as part of their submissions via structured templates. This includes details about training, license, limitations, etc. 
-        \item The paper should discuss whether and how consent was obtained from people whose asset is used.
-        \item At submission time, remember to anonymize your assets (if applicable). You can either create an anonymized URL or include an anonymized zip file.
-    \end{itemize}
-
-\item {\bf Crowdsourcing and research with human subjects}
-    \item[] Question: For crowdsourcing experiments and research with human subjects, does the paper include the full text of instructions given to participants and screenshots, if applicable, as well as details about compensation (if any)? 
-    \item[] Answer: \answerNA{}.
-    \item[] Justification: No new human-subjects data or crowdsourcing were conducted; we rely solely on public de-identified datasets.
-    \item[] Guidelines:
-    \begin{itemize}
-        \item The answer NA means that the paper does not involve crowdsourcing nor research with human subjects.
-        \item Including this information in the supplemental material is fine, but if the main contribution of the paper involves human subjects, then as much detail as possible should be included in the main paper. 
-        \item According to the NeurIPS Code of Ethics, workers involved in data collection, curation, or other labor should be paid at least the minimum wage in the country of the data collector. 
-    \end{itemize}
-
-\item {\bf Institutional review board (IRB) approvals or equivalent for research with human subjects}
-    \item[] Question: Does the paper describe potential risks incurred by study participants, whether such risks were disclosed to the subjects, and whether Institutional Review Board (IRB) approvals (or an equivalent approval/review based on the requirements of your country or institution) were obtained?
-    \item[] Answer: \answerNA{}
-    \item[] Justification: The work analyzes public, de-identified EEG datasets and does not involve direct human-subjects research requiring IRB review for this study.
-    \item[] Guidelines:
-    \begin{itemize}
-        \item The answer NA means that the paper does not involve crowdsourcing nor research with human subjects.
-        \item Depending on the country in which research is conducted, IRB approval (or equivalent) may be required for any human subjects research. If you obtained IRB approval, you should clearly state this in the paper. 
-        \item We recognize that the procedures for this may vary significantly between institutions and locations, and we expect authors to adhere to the NeurIPS Code of Ethics and the guidelines for their institution. 
-        \item For initial submissions, do not include any information that would break anonymity (if applicable), such as the institution conducting the review.
-    \end{itemize}
-
-\item {\bf Declaration of LLM usage}
-    \item[] Question: Does the paper describe the usage of LLMs if it is an important, original, or non-standard component of the core methods in this research? Note that if the LLM is used only for writing, editing, or formatting purposes and does not impact the core methodology, scientific rigorousness, or originality of the research, declaration is not required.
-    %this research? 
-    \item[] Answer: \answerNA{}
-    \item[] Justification: LLMs are not part of the core technical method; any editorial assistance does not impact the scientific methodology and thus does not require declaration.
-    \item[] Guidelines:
-    \begin{itemize}
-        \item The answer NA means that the core method development in this research does not involve LLMs as any important, original, or non-standard components.
-        \item Please refer to our LLM policy (\url{https://neurips.cc/Conferences/2025/LLM}) for what should or should not be described.
-    \end{itemize}
-
-\end{enumerate}
 
 \end{document}

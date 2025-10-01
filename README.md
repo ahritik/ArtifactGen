@@ -23,15 +23,6 @@ It targets the TUH EEG Artifact Corpus (TUAR) with subject-wise splits, robust p
 
 ✅ **Initial Training Runs Completed**: TensorBoard logs indicate successful training runs with GPU acceleration
 
-## Associated Paper
-
-The paper files are located in the `paper/` directory:
-
-- Source: `paper/ArtifactGEN.tex`
-- Bibliography: `paper/ArtifactGEN.bib`
-- Style: `paper/neurips_2025.sty`
-- Compiled PDF: `paper/ArtifactGEN.pdf`
-
 ## Quickstart
 
 1. Set up environment
@@ -58,7 +49,6 @@ The paper files are located in the `paper/` directory:
 
 - Run the full evaluation suite (signal, feature, functional, utility classifier):
 
-  
   ```bash
   # zsh/bash
   ./scripts/run_evaluation.sh configs/ddpm_raw.yaml
@@ -66,7 +56,6 @@ The paper files are located in the `paper/` directory:
 
 - Or call individual evaluators:
 
-  
   ```bash
   # Signal-level metrics (band-power errors, channel correlation, PSD distance)
   python -m src.eval.metrics_signal --config configs/ddpm_raw.yaml \
@@ -151,7 +140,6 @@ Explore and visualize results in the following notebooks (open with Jupyter Lab 
 - `README.md`          This file
 - `requirements.txt`   Python dependencies
 
-
 ## Current Features
 
 ### Data Processing
@@ -232,7 +220,7 @@ See `ENVIRONMENT.md` for pinned versions, `paper/CITATIONS.bib` for references, 
 
 ## Citation
 
-If you use this work, please cite our PrePrint at arXiv:XXXX.XXXX (citation details to be added upon publication).
+If you use this work, please cite our PrePrint at arXiv:2509.08188.
 
 ## How to Run Everything
 
@@ -243,11 +231,13 @@ All main scripts are in the `scripts/` folder and can be run from PowerShell on 
   ```powershell
   ./scripts/run_preprocessing.sh
   ```
+
 - **Training:**
 
   ```powershell
   ./scripts/run_training.sh
   ```
+
 - **Evaluation:**
 
   ```powershell
