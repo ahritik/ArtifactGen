@@ -24,5 +24,7 @@ venv/
 # OS
 .DS_Store
 
+
+*.pth
 # Paper
 /paper/*
