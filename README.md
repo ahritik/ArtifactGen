@@ -191,8 +191,11 @@ python -m src.eval.utility_classifier \
 
 ### Notable Evaluation Artifacts
 
-- Signal metrics: `results/signal_metrics.csv`, LaTeX `results/table_bandpower.tex`
-- Utility classifier: `results/utility_classifier.csv`, LaTeX `results/table_utility.tex`
+- Signal metrics: `results/signal_metrics.csv`, LaTeX `paper/figs/table_bandpower.tex` and `paper/figs/table_channel_effects.tex` (included in the paper via `\input{...}`)
+- Feature metrics: `results/feature_metrics.csv`, LaTeX `paper/figs/table_metrics.tex`
+- Utility classifier: `results/utility_classifier.csv`, LaTeX `paper/figs/table_utility.tex`
+
+Camera-ready constraint: all analyses are post hoc from fixed checkpoints (no retraining). Unless noted, quantitative tables use per-class N=3000 synthetic windows, matched by N=3000 real windows from the test split.
 
 ## Recent Updates
 

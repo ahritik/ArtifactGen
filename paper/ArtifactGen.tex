@@ -18,7 +18,8 @@
 \usepackage{amssymb}
 \usepackage{graphicx}
 \usepackage{natbib}
-\usepackage{subfigure}
+% Deprecated: subfigure. Use caption with simple includegraphics.
+\usepackage{caption}
 
 \title{ArtifactGen: Benchmarking WGAN-GP vs Diffusion for Label-Aware EEG Artifact Synthesis}
 \usepackage{amsmath}
@@ -47,7 +48,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \begin{abstract}
-Artifacts in electroencephalography (EEG)---muscle, eye movement, electrode, chewing, and shiver---confound automated analysis yet are costly to label at scale. We study whether modern generative models can synthesize realistic, label-aware artifact segments suitable for augmentation and stress-testing. Using the TUH EEG Artifact (TUAR) corpus, we curate subject-wise splits and fixed-length multi-channel windows (e.g., 250 samples) with preprocessing tailored to each model (per-window min--max for adversarial training; per-recording/channel $z$-score for diffusion). We compare a conditional WGAN-GP with a projection discriminator to a 1D denoising diffusion model with classifier-free guidance, and evaluate along three axes: (i) fidelity via Welch band-power deltas ($\Delta\delta,\ \Delta\theta,\ \Delta\alpha,\ \Delta\beta$), channel-covariance Frobenius distance, autocorrelation $L_2$, and distributional metrics (MMD/PRD); (ii) specificity via class-conditional recovery with lightweight $k$NN/classifiers; and (iii) utility via augmentation effects on artifact recognition. In our setting, WGAN-GP achieves closer spectral alignment and lower MMD to real data, while both models exhibit weak class-conditional recovery, limiting immediate augmentation gains and revealing opportunities for stronger conditioning and coverage. We release a reproducible pipeline---data manifests, training configurations, and evaluation scripts---to establish a baseline for EEG artifact synthesis and to surface actionable failure modes for future work.
+Artifacts in electroencephalography (EEG)---muscle, eye movement, electrode, chewing, and shiver---confound automated analysis yet are costly to label at scale. We study whether modern generative models can synthesize realistic, label-aware artifact segments suitable for augmentation and stress-testing. Using the TUH EEG Artifact (TUAR) corpus, we curate subject-wise splits and fixed-length multi-channel windows (e.g., 250 samples) with preprocessing tailored to each model (per-window min--max for adversarial training; per-recording/channel $z$-score for diffusion). We compare a conditional WGAN-GP with a projection discriminator to a 1D denoising diffusion model with classifier-free guidance, and evaluate along three axes: (i) fidelity via Welch band-power deltas ($\Delta\delta,\ \Delta\theta,\ \Delta\alpha,\ \Delta\beta,\ \Delta\gamma$), channel-covariance Frobenius distance, autocorrelation $L_2$, and distributional metrics (MMD/PRD); (ii) specificity via class-conditional recovery with lightweight $k$NN/classifiers; and (iii) utility via augmentation effects on artifact recognition. In our setting, WGAN-GP achieves closer spectral alignment and lower MMD to real data, while both models exhibit weak class-conditional recovery, limiting immediate augmentation gains and revealing opportunities for stronger conditioning and coverage. All analyses in this version are post hoc from fixed checkpoints (no retraining). We release a reproducible pipeline---data manifests, training configurations, and evaluation scripts---to establish a baseline for EEG artifact synthesis and to surface actionable failure modes for future work.
 \end{abstract}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -72,7 +73,7 @@ Beyond single-number heuristics, \textsc{ArtifactGen} emphasizes a time-series-a
     \item A conditional WGAN-GP with projection discriminator for stable, label-aware synthesis \citep{gulrajani2017wgan,miyato2018cgan}.
     \item A 1D diffusion model with FiLM conditioning and classifier-free guidance \citep{perez2018filmvisual,ho2020denoisingprobabilistic,ho2022classifierfree}.
   \item A transparent evaluation suite spanning signal-level properties, feature-space distances (FID/KID/PRD), and functional tests including AugMix-style augmentation \citep{heusel2017ganstrained,binkowski2018demystifyingmmd,sajjadi2018assessingprecision,hendrycks2020augmixsimple,welch1967usefast}.
-  \item \textbf{New in this revision:} (i) explicit acronym definitions; (ii) clarified sample counts (per-class $N=3000$ for quantitative tables; subsampled $n=800$ only for early exploratory plots); (iii) bug fix in band-power computation (previous identical deltas were due to an indentation error); (iv) added $\gamma$ band; (v) bootstrap confidence intervals for MMD and 1-NN / C2ST two-sample tests; (vi) procedural (non-learned) artifact baseline; (vii) per-channel mean shift reporting; (viii) methods summary table (App.~\ref{app:methods-table}).
+  \item \textbf{New in this revision:} (i) explicit acronym definitions; (ii) clarified sample counts (per-class $N=3000$ for quantitative tables; subsampled $n=800$ only for early exploratory plots); (iii) bug fix in band-power computation (previous identical deltas were due to an indentation error); (iv) added $\gamma$ band; (v) bootstrap confidence intervals for MMD and 1-NN / C2ST two-sample tests; (vi) procedural (non-learned) artifact baseline; (vii) per-channel mean shift reporting; (viii) methods summary table (Table~\ref{tab:methods-summary}).
     \item A subject-wise pipeline to curate labeled artifact windows with robust normalization and fixed-length padding/truncation \citep{obeid2016tuh,hamid2020tuar}.
     \item A conditional WGAN-GP with projection discriminator for stable, label-aware synthesis \citep{gulrajani2017improved,miyato2018cgans}.
     \item A 1D diffusion model with FiLM conditioning and classifier-free guidance \citep{perez2018film,ho2020denoising,ho2022classifierfree}.
@@ -222,6 +223,20 @@ Unless specified otherwise, we operate on \emph{raw} signals (no additional notc
 \paragraph{Manifests, class maps, and splits.}
 We supply (i) a subject-wise split CSV ensuring disjoint identities across train/val/test; (ii) a stable class map for the five artifact labels; and (iii) a consolidated manifest (JSON) that records per-window paths, labels, subject IDs, normalization statistics, and the effective \(L\). These files fully reproduce dataset composition and preprocessing decisions.
 
+\begin{table}[t]
+  \centering
+  \caption{Subject counts per split (auto-generated).}
+  \label{tab:splits}
+  \input{figs/table_splits.tex}
+\end{table}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.45\linewidth]{figs/split_counts.png}
+  \caption{Bar chart of subjects per split from the manifest summary (no retraining).}
+  \label{fig:split-counts}
+\end{figure}
+
 \paragraph{Configuration (exact defaults).}
 All data-related parameters are set via YAML and versioned with each run:
 \begin{itemize}
@@ -246,6 +261,17 @@ All data-related parameters are set via YAML and versioned with each run:
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \section{Methods}
+\paragraph{At-a-glance configuration.} Table~\ref{tab:methods-summary} summarizes fixed settings per model used in this comparison.
+
+\begin{table}[t]
+  \centering
+  \caption{Methods summary (auto-generated from YAML).}
+  \label{tab:methods-summary}
+  \input{figs/table_methods_summary.tex}
+\end{table}
+
+\subsection{Scope and Constraints}
+All updates here are post hoc using previously trained checkpoints. We do not retrain or alter model weights; new statistics and visualizations are computed from fixed checkpoints and manifests.
 
 \subsection{Conditional WGAN-GP with Projection Discriminator}
 We model artifact-conditioned synthesis as $G:\mathbb{R}^{d_z}\times\{1,\dots,K\}\!\to\!\mathbb{R}^{C\times T}$, where $z\!\sim\!\mathcal{N}(0,I)$ and $K$ is the number of artifact classes. For adversarial training we apply per-window min--max normalization to $[-1,1]$, concatenate $z$ with a one-hot label $y$, and upsample via a 1D transposed-convolutional generator to produce multi-channel windows $\tilde{x}$. 
@@ -262,12 +288,27 @@ with $\phi(x)\in\mathbb{R}^h$ the penultimate features and $e_y\in\mathbb{R}^h$ 
 where $\hat x$ are linearly interpolated real/fake samples. We optionally include an $L_1$ spectral term between magnitude STFTs to encourage frequency fidelity; unless otherwise stated, results below do not rely on this auxiliary loss.
 
 \subsection{Diffusion Model with 1D U\texorpdfstring{\!-}{-}Net and FiLM Conditioning}
-We adopt a denoising diffusion probabilistic model (DDPM) \citep{ho2020denoisingprobabilistic} with a 1D U\!-Net backbone. Inputs $x\in\mathbb{R}^{C\times T}$ are standardized per recording/channel (z-score). Timestep embeddings (sinusoidal) and label embeddings are fused and injected via FiLM layers to modulate intermediate activations; we reserve a null label to support classifier-free guidance during sampling \citep{ho2022classifierfree}. The network predicts additive noise with an MSE loss.
+We adopt a denoising diffusion probabilistic model (DDPM) \citep{ho2020denoisingprobabilistic} with a 1D U\!-Net backbone. Inputs $x\in\mathbb{R}^{C\times T}$ are standardized per recording/channel (z-score). Timestep embeddings (sinusoidal) and label embeddings are fused and injected via FiLM layers; a null label enables classifier-free guidance (CFG) at sampling time \citep{ho2022classifierfree}.
+
+\paragraph{Forward process.} With variance schedule $\{\beta_t\}_{t=1}^T$, define $\alpha_t=1-\beta_t$ and $\bar\alpha_t=\prod_{s=1}^t \alpha_s$. The noising process is
+\[
+q(x_t\mid x_{t-1})=\mathcal{N}\big(\sqrt{\alpha_t}\,x_{t-1},\; \beta_t\,\mathbf{I}\big),\qquad
+q(x_t\mid x_0)=\mathcal{N}\big(\sqrt{\bar\alpha_t}\,x_0,\; (1-\bar\alpha_t)\,\mathbf{I}\big).
+\]
+
+\paragraph{Training objective.} The network predicts the added noise (or $v$-parameterization). We minimize
+\[
+\mathcal{L}_{\text{simple}}=\mathbb{E}_{t,\,x_0,\,\varepsilon}\,\big\|\,\varepsilon-\varepsilon_\theta(x_t, t, y)\,\big\|_2^2,\quad x_t=\sqrt{\bar\alpha_t}\,x_0+\sqrt{1-\bar\alpha_t}\,\varepsilon,\; \varepsilon\sim\mathcal{N}(0,\mathbf{I}).
+\]
+
+\paragraph{Sampling with CFG.} We use an ancestral (or DDIM-style) sampler with $S$ steps. With classifier-free guidance, we form
+\(
+\varepsilon_\theta^{\text{cfg}}=\varepsilon_\theta(x_t,t,y) + s\,[\,\varepsilon_\theta(x_t,t,y)-\varepsilon_\theta(x_t,t,\emptyset)\,]\), guidance scale $s\ge 0$.
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=0.7\linewidth]{figs/examples_windows_multi.png}
-  \caption{Representative multi-channel EEG windows for each artifact class, illustrating morphology and channel correlations after preprocessing.}
+    \caption{Representative multi-channel EEG windows for each artifact class (Muscle, Eye, Electrode, Chewing, Shiver). Channels ordered: Fp1, Fp2, C3, C4, O1, O2, T3, T4. Real (black) vs synthetic overlays.}
   \label{fig:examples-multi}
 \end{figure}
 
@@ -321,9 +362,30 @@ To assess sample variety we report a simple \emph{diversity} score defined as $1
 \label{sec:results}
 \paragraph{Sample counts and protocol.} Unless noted, quantitative tables use $N=3000$ synthetic windows per class (5 classes; 15k total) and an equal number of real windows subsampled from the test split to balance kernel estimates. Earlier exploratory plots (now moved to Appendix) used $n=800$ per class; we explicitly mark these to avoid confusion.
 
-\paragraph{Signal fidelity.} (Detailed numerical table to be inserted; current pipeline auto-generates `table_bandpower.tex` with corrected band deltas including $\gamma$.)
+\paragraph{Signal fidelity.} Table~\ref{tab:bandpower} reports band-power relative errors ($\delta$--$\gamma$) and PSD $L_2$. Table~\ref{tab:chan-effects} summarizes per-channel mean shifts.
 
-\paragraph{Distributional two-sample tests.} We observe 1-NN accuracies of X (WGAN) vs Y (DDPM) (placeholder values to update) in embedding space, and C2ST logistic accuracies of A vs B, confirming non-trivial but reduced separability relative to the procedural baseline (Z). Bootstrap MMD CIs (95\%) show non-overlap between procedural and learned models, indicating meaningful gains beyond trivial surrogates.
+\begin{table}[t]
+  \centering
+  \caption{Band-power relative errors (lower is better) and PSD $L_2$ (auto-generated).}
+  \label{tab:bandpower}
+  \input{figs/table_bandpower.tex}
+\end{table}
+
+\begin{table}[t]
+  \centering
+  \caption{Per-channel mean differences and aggregate effects (auto-generated).}
+  \label{tab:chan-effects}
+  \input{figs/table_channel_effects.tex}
+\end{table}
+
+\paragraph{Distributional two-sample tests.} Table~\ref{tab:metrics} reports MMD with 95\% bootstrap CIs, 1-NN and C2ST accuracies, and a diversity proxy. Learned models outperform the procedural baseline; in our setting WGAN-GP is closer to real than DDPM on MMD.
+
+\begin{table}[t]
+  \centering
+  \caption{Distributional metrics: MMD (95\% CI), 1-NN, C2ST, diversity proxy (auto-generated).}
+  \label{tab:metrics}
+  \input{figs/table_metrics.tex}
+\end{table}
 
 \paragraph{Ablations and baselines.} The procedural baseline exhibits markedly higher band-power errors and MMD yet similar diversity proxy, suggesting diversity alone is insufficient—supporting inclusion of bootstrapped two-sample tests.
 
@@ -388,8 +450,7 @@ Finally, we will adapt these conditioning, efficiency, and evaluation strategies
 \newpage
 
 \section{References}
-\nocite{*}
-\bibliographystyle{plain}
+\bibliographystyle{plainnat}
 \bibliography{ArtifactGen}
 
 
@@ -463,5 +524,32 @@ All experiments were run on a single workstation; we provide exact hardware/soft
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \clearpage
+
+\subsection{Acronyms}
+DDPM: Denoising Diffusion Probabilistic Model; CFG: Classifier-Free Guidance; PSD: Power Spectral Density; PRD: Precision–Recall for Distributions; MMD: Maximum Mean Discrepancy; C2ST: Classifier Two-Sample Test; ACF: Autocorrelation Function; EMA: Exponential Moving Average.
+
+\subsection{Statistical testing and CIs}
+We use unbiased $\widehat{\mathrm{MMD}}^2$ with an RBF kernel (median heuristic). Confidence intervals are computed via nonparametric bootstrap over windows (1{,}000 resamples). 1-NN uses leave-one-out; C2ST is logistic regression with stratified 5-fold evaluation.
+
+\subsection{Evaluation sensitivity (post hoc)}
+Harmonizing evaluation-time normalization and resampling windows without retraining changes absolute values slightly but preserves model ranking and qualitative conclusions.
+
+\subsection{External validators (future)}
+We plan to add ICLabel/EyeCatch as external validators to assess spatial topology adherence for ocular artifacts without retraining our generators.
+
+\subsection{Checkpoint inventory}
+\begin{table}[h]
+  \centering
+  \caption{Summary of available checkpoints under \texttt{results/checkpoints} (auto-generated).}
+  \label{tab:checkpoints}
+  \input{figs/table_checkpoints.tex}
+\end{table}
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.55\linewidth]{figs/checkpoint_counts.png}
+  \caption{Checkpoint files by filename prefix found under \texttt{results/checkpoints}.}
+  \label{fig:ckpt-counts}
+\end{figure}
 
 \end{document}
